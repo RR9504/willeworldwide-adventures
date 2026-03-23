@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Mountain, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
@@ -7,23 +7,22 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/40 bg-sidebar text-sidebar-foreground backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2.5">
-          <Mountain className="h-7 w-7 text-primary" />
-          <span className="font-heading text-lg font-bold tracking-tight">
-            Wille<span className="text-primary">WorldWide</span>
-          </span>
+          <img
+            src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/full-logo-wille-worldwide-vittext-rgb.png?media=1766889486"
+            alt="WilleWorldWide"
+            className="h-8 w-auto"
+          />
         </Link>
 
-        <nav className="hidden items-center gap-6 md:flex">
-          <Link to="/" className="text-sm font-medium text-sidebar-foreground/70 transition-colors hover:text-sidebar-foreground">
+        <nav className="hidden items-center gap-8 md:flex">
+          <Link to="/" className="text-xs font-heading font-bold uppercase tracking-widest text-sidebar-foreground/80 transition-colors hover:text-sidebar-foreground">
             Resor
           </Link>
-          <Link to="/dashboard">
-            <Button size="sm" variant="outline" className="border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent">
-              Admin
-            </Button>
+          <Link to="/dashboard" className="text-xs font-heading font-bold uppercase tracking-widest text-sidebar-foreground/80 transition-colors hover:text-sidebar-foreground">
+            Admin
           </Link>
         </nav>
 
@@ -39,10 +38,10 @@ const Header = () => {
 
       {mobileOpen && (
         <div className="border-t border-sidebar-border px-4 pb-4 pt-2 md:hidden">
-          <Link to="/" onClick={() => setMobileOpen(false)} className="block py-2 text-sm text-sidebar-foreground/70">
+          <Link to="/" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-heading font-bold uppercase tracking-widest text-sidebar-foreground/80">
             Resor
           </Link>
-          <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="block py-2 text-sm text-sidebar-foreground/70">
+          <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-heading font-bold uppercase tracking-widest text-sidebar-foreground/80">
             Admin
           </Link>
         </div>
