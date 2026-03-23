@@ -1,4 +1,4 @@
-import { Trip, Registration } from '@/types/trip';
+import { Trip } from '@/types/trip';
 
 export const mockTrips: Trip[] = [
   {
