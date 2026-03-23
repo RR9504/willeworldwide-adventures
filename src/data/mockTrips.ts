@@ -1,4 +1,4 @@
-import { Trip, Registration } from '@/types/trip';
+import { Trip } from '@/types/trip';
 
 export const mockTrips: Trip[] = [
   {
@@ -215,13 +215,4 @@ export const mockTrips: Trip[] = [
   },
 ];
 
-export const mockRegistrations: Registration[] = [
-  // Vecka 3 registrations
-  { id: 'r1', trip_id: '1', form_data: { 'Förnamn': 'Anna', 'Efternamn': 'Svensson', 'E-post': 'anna@mail.se', 'Telefon': '070-111 22 33', 'Personnummer': '19900315-1234', 'Påstigningsplats': 'kalmar', 'Hotell': 'cavalletto', 'Rumstyp': 'double', 'Rumskompis (vid delat dubbelrum)': 'Erik Svensson', 'Jag vill ha hjälp med liftkort': true, 'Skidhyra': true, 'Typ av utrustning': 'alpine', 'Storlek skor': '38', 'Allergier / specialkost': 'Glutenfri' }, payment_status: 'paid', created_at: '2025-07-01', updated_at: '2025-07-01' },
-  { id: 'r2', trip_id: '1', form_data: { 'Förnamn': 'Erik', 'Efternamn': 'Svensson', 'E-post': 'erik@mail.se', 'Telefon': '070-222 33 44', 'Personnummer': '19880520-5678', 'Påstigningsplats': 'kalmar', 'Hotell': 'cavalletto', 'Rumstyp': 'double', 'Rumskompis (vid delat dubbelrum)': 'Anna Svensson', 'Jag vill ha hjälp med liftkort': true, 'Skidhyra': false, 'Allergier / specialkost': '' }, payment_status: 'paid', created_at: '2025-07-02', updated_at: '2025-07-02' },
-  { id: 'r3', trip_id: '1', form_data: { 'Förnamn': 'Lisa', 'Efternamn': 'Andersson', 'E-post': 'lisa@mail.se', 'Telefon': '070-333 44 55', 'Personnummer': '19950812-9012', 'Påstigningsplats': 'hyllie', 'Hotell': 'val-de-costa', 'Rumstyp': 'single', 'Jag vill ha hjälp med liftkort': true, 'Skidhyra': true, 'Typ av utrustning': 'snowboard', 'Storlek skor': '40', 'Allergier / specialkost': 'Laktosfri' }, payment_status: 'unpaid', created_at: '2025-07-05', updated_at: '2025-07-05' },
-  // Vecka 6 registrations
-  { id: 'r4', trip_id: '2', form_data: { 'Förnamn': 'Karl', 'Efternamn': 'Johansson', 'E-post': 'karl@mail.se', 'Telefon': '070-444 55 66', 'Personnummer': '19850315-3456', 'Påstigningsplats': 'kristianstad', 'Hotell': 'cavalletto', 'Rumstyp': 'double', 'Rumskompis (vid delat dubbelrum)': 'Maria Johansson', 'Jag vill ha hjälp med liftkort': false }, payment_status: 'paid', created_at: '2025-07-10', updated_at: '2025-07-10' },
-  // Bremen registrations
-  { id: 'r5', trip_id: '4', form_data: { 'Förnamn': 'Johan', 'Efternamn': 'Nilsson', 'E-post': 'johan@mail.se', 'Telefon': '070-555 66 77', 'Personnummer': '19920708-7890', 'Påstigningsplats': 'karlshamn', 'Rumstyp': 'double', 'Rumskompis (vid delat dubbelrum)': 'Peter Nilsson', 'Jag vill ha biljetter till Freimarkt-tältet (ca 40 EUR/kväll)': true, 'Antal kvällar i tältet': '3', 'Allergier / specialkost': '' }, payment_status: 'partial', created_at: '2025-09-20', updated_at: '2025-09-20' },
-];
+export { mockRegistrations } from './mockRegistrations';
