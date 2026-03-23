@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Share2, Download, Mail, Filter } from 'lucide-react';
+import { ArrowLeft, Share2, Download, Mail, Filter, Pencil } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -107,6 +107,11 @@ const TripDetailsPage = () => {
             <p className="text-sm text-muted-foreground">{trip.destination} · {new Date(trip.start_date).toLocaleDateString('sv-SE')}</p>
           </div>
           <div className="flex gap-2">
+            <Link to={`/dashboard/resor/${trip.id}/redigera`}>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Pencil className="h-4 w-4" /> Redigera
+              </Button>
+            </Link>
             <Button variant="outline" size="sm" className="gap-2" onClick={() => { navigator.clipboard.writeText(shareLink); toast.success('Länk kopierad!'); }}>
               <Share2 className="h-4 w-4" /> Dela länk
             </Button>

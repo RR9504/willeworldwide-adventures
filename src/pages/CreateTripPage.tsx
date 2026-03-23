@@ -1,0 +1,311 @@
+import { useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Plus, Eye, Save, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import Header from '@/components/layout/Header';
+import FormFieldList from '@/components/admin/FormFieldList';
+import FormPreview from '@/components/admin/FormPreview';
+import { Trip, TripCategory, TripStatus, FormField, FormFieldType } from '@/types/trip';
+import { mockTrips } from '@/data/mockTrips';
+import { toast } from 'sonner';
+
+const categoryLabels: Record<TripCategory, string> = {
+  ski: 'Skidresa',
+  group: 'Gruppresa',
+  corporate: 'Företagsresa',
+  other: 'Övrigt',
+};
+
+const statusLabels: Record<TripStatus, string> = {
+  draft: 'Utkast',
+  published: 'Publicerad',
+  closed: 'Stängd',
+};
+
+const defaultFormFields: FormField[] = [
+  { id: 'default-1', type: 'text', label: 'Förnamn', required: true, placeholder: 'Ditt förnamn' },
+  { id: 'default-2', type: 'text', label: 'Efternamn', required: true, placeholder: 'Ditt efternamn' },
+  { id: 'default-3', type: 'email', label: 'E-post', required: true, placeholder: 'din@email.se' },
+  { id: 'default-4', type: 'phone', label: 'Telefon', required: true, placeholder: '070-123 45 67' },
+];
+
+let fieldCounter = 100;
+const generateFieldId = () => `field-${++fieldCounter}`;
+
+const CreateTripPage = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const isEditing = !!id;
+
+  const existingTrip = isEditing ? mockTrips.find(t => t.id === id) : null;
+
+  const [title, setTitle] = useState(existingTrip?.title || '');
+  const [description, setDescription] = useState(existingTrip?.description || '');
+  const [destination, setDestination] = useState(existingTrip?.destination || '');
+  const [category, setCategory] = useState<TripCategory>(existingTrip?.category || 'ski');
+  const [startDate, setStartDate] = useState(existingTrip?.start_date || '');
+  const [endDate, setEndDate] = useState(existingTrip?.end_date || '');
+  const [price, setPrice] = useState(existingTrip?.price?.toString() || '');
+  const [maxParticipants, setMaxParticipants] = useState(existingTrip?.max_participants?.toString() || '');
+  const [showSpotsLeft, setShowSpotsLeft] = useState(existingTrip?.show_spots_left ?? true);
+  const [imageUrl, setImageUrl] = useState(existingTrip?.image_url || '');
+  const [status, setStatus] = useState<TripStatus>(existingTrip?.status || 'draft');
+  const [formFields, setFormFields] = useState<FormField[]>(existingTrip?.form_fields || defaultFormFields);
+  const [saving, setSaving] = useState(false);
+
+  const addField = (type: FormFieldType) => {
+    const newField: FormField = {
+      id: generateFieldId(),
+      type,
+      label: '',
+      required: false,
+      ...(type === 'select' ? { options: [{ label: '', value: '' }] } : {}),
+    };
+    setFormFields(prev => [...prev, newField]);
+  };
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      toast.error('Ange en titel för resan');
+      return;
+    }
+    if (!destination.trim()) {
+      toast.error('Ange en destination');
+      return;
+    }
+    if (!startDate || !endDate) {
+      toast.error('Ange start- och slutdatum');
+      return;
+    }
+
+    const emptyLabels = formFields.filter(f => !f.label.trim());
+    if (emptyLabels.length > 0) {
+      toast.error(`${emptyLabels.length} fält saknar etikett`);
+      return;
+    }
+
+    setSaving(true);
+
+    const trip: Trip = {
+      id: existingTrip?.id || String(Date.now()),
+      title: title.trim(),
+      description: description.trim(),
+      destination: destination.trim(),
+      category,
+      start_date: startDate,
+      end_date: endDate,
+      price: Number(price) || 0,
+      currency: 'SEK',
+      max_participants: Number(maxParticipants) || 50,
+      show_spots_left: showSpotsLeft,
+      image_url: imageUrl.trim(),
+      status,
+      form_fields: formFields,
+      created_at: existingTrip?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // TODO: Save to Supabase
+    console.log('Saving trip:', trip);
+
+    setTimeout(() => {
+      setSaving(false);
+      toast.success(isEditing ? 'Resan uppdaterad!' : 'Resan skapad!');
+      navigate('/dashboard');
+    }, 500);
+  };
+
+  return (
+    <div className="flex min-h-screen flex-col bg-muted/30">
+      <Header />
+      <main className="container flex-1 py-8">
+        <Link to="/dashboard" className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" /> Tillbaka till dashboard
+        </Link>
+
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="font-heading text-2xl font-bold">
+            {isEditing ? 'Redigera resa' : 'Skapa ny resa'}
+          </h1>
+          <Button onClick={handleSave} disabled={saving} className="gap-2">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {saving ? 'Sparar...' : 'Spara resa'}
+          </Button>
+        </div>
+
+        <Tabs defaultValue="details" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="details">Reseinformation</TabsTrigger>
+            <TabsTrigger value="form">Formulärbyggare</TabsTrigger>
+            <TabsTrigger value="preview" className="gap-1.5">
+              <Eye className="h-3.5 w-3.5" /> Förhandsgranska
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab 1: Trip details */}
+          <TabsContent value="details">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Grundinformation</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>Titel *</Label>
+                    <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="t.ex. Skidresa Canazei – Vecka 3" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Destination *</Label>
+                    <Input value={destination} onChange={e => setDestination(e.target.value)} placeholder="t.ex. Canazei/Alba, Italien" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Beskrivning</Label>
+                  <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Beskriv resan..." rows={4} />
+                </div>
+
+                <Separator />
+
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-1.5">
+                    <Label>Kategori</Label>
+                    <Select value={category} onValueChange={(v: TripCategory) => setCategory(v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(categoryLabels).map(([val, label]) => (
+                          <SelectItem key={val} value={val}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Status</Label>
+                    <Select value={status} onValueChange={(v: TripStatus) => setStatus(v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(statusLabels).map(([val, label]) => (
+                          <SelectItem key={val} value={val}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Startdatum *</Label>
+                    <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Slutdatum *</Label>
+                    <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label>Pris (SEK)</Label>
+                    <Input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Max deltagare</Label>
+                    <Input type="number" value={maxParticipants} onChange={e => setMaxParticipants(e.target.value)} placeholder="50" />
+                  </div>
+                  <div className="flex items-end gap-3 pb-1">
+                    <Switch checked={showSpotsLeft} onCheckedChange={setShowSpotsLeft} />
+                    <Label>Visa platser kvar</Label>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-1.5">
+                  <Label>Bild-URL</Label>
+                  <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." />
+                  {imageUrl && (
+                    <div className="mt-2 overflow-hidden rounded-lg border">
+                      <img src={imageUrl} alt="Förhandsgranskning" className="h-48 w-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab 2: Form builder */}
+          <TabsContent value="form">
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">Anmälningsformulär</CardTitle>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Dra fält för att ändra ordning. Klicka på ett fält för att redigera.
+                      </p>
+                    </div>
+                    <span className="rounded bg-muted px-2 py-1 text-sm text-muted-foreground">
+                      {formFields.length} fält
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {formFields.length === 0 ? (
+                    <div className="flex items-center justify-center rounded-lg border border-dashed py-12">
+                      <p className="text-sm text-muted-foreground">Inga fält ännu. Lägg till fält nedan.</p>
+                    </div>
+                  ) : (
+                    <FormFieldList fields={formFields} onChange={setFormFields} />
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Add field buttons */}
+              <Card>
+                <CardContent className="p-4">
+                  <p className="mb-3 text-sm font-medium">Lägg till fält</p>
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      ['text', 'Text'],
+                      ['email', 'E-post'],
+                      ['phone', 'Telefon'],
+                      ['textarea', 'Textruta'],
+                      ['select', 'Dropdown'],
+                      ['checkbox', 'Kryssruta'],
+                    ] as [FormFieldType, string][]).map(([type, label]) => (
+                      <Button
+                        key={type}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addField(type)}
+                        className="gap-1.5"
+                      >
+                        <Plus className="h-3 w-3" /> {label}
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Tab 3: Preview */}
+          <TabsContent value="preview">
+            <FormPreview fields={formFields} tripTitle={title} />
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+};
+
+export default CreateTripPage;
