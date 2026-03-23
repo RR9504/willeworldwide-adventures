@@ -73,37 +73,6 @@ const TripDetailsPage = () => {
     );
   }
 
-  // Get unique values for selected field
-  const uniqueValues = useMemo(() => {
-    if (!filterField) return [];
-    const values = new Set<string>();
-    registrations.forEach(r => {
-      const val = r.form_data[filterField];
-      if (val !== undefined && val !== null && val !== '') {
-        values.add(String(val));
-      }
-    });
-    return Array.from(values).sort();
-  }, [filterField, registrations]);
-
-  const filteredRegs = useMemo(() => {
-    if (!filterField || !filterValue) return registrations;
-    return registrations.filter(r => String(r.form_data[filterField]) === filterValue);
-  }, [registrations, filterField, filterValue]);
-
-  // Summary counts
-  const summary = useMemo(() => {
-    const counts: Record<string, Record<string, number>> = {};
-    trip.form_fields.filter(f => f.type === 'select' || f.type === 'checkbox').forEach(field => {
-      counts[field.label] = {};
-      registrations.forEach(r => {
-        const val = String(r.form_data[field.label] ?? '');
-        if (val) counts[field.label][val] = (counts[field.label][val] || 0) + 1;
-      });
-    });
-    return counts;
-  }, [registrations, trip.form_fields]);
-
   const exportCSV = () => {
     const headers = ['#', ...fieldLabels, 'Betalningsstatus', 'Datum'];
     const rows = filteredRegs.map((r, i) => [
