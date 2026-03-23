@@ -134,12 +134,22 @@ const TripDetailsPage = () => {
                   <div key={field}>
                     <p className="mb-2 font-heading text-sm font-semibold">{field}</p>
                     <div className="space-y-1">
-                      {Object.entries(values).map(([val, count]) => (
-                        <div key={val} className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">{val === 'true' ? 'Ja' : val === 'false' ? 'Nej' : val}</span>
-                          <Badge variant="secondary">{count} st</Badge>
-                        </div>
-                      ))}
+                      {Object.entries(values).map(([val, count]) => {
+                        const isActive = filterField === field && filterValue === val;
+                        return (
+                          <button
+                            key={val}
+                            onClick={() => {
+                              if (isActive) { setFilterField(''); setFilterValue(''); }
+                              else { setFilterField(field); setFilterValue(val); }
+                            }}
+                            className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-sm transition-colors hover:bg-accent ${isActive ? 'bg-accent ring-1 ring-primary/30' : ''}`}
+                          >
+                            <span className="text-muted-foreground">{val === 'true' ? 'Ja' : val === 'false' ? 'Nej' : val}</span>
+                            <Badge variant="secondary">{count} st</Badge>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
