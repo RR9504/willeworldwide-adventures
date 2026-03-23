@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Mountain, Snowflake } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Header from '@/components/layout/Header';
@@ -32,33 +32,28 @@ const Index = () => {
     <div className="flex min-h-screen flex-col">
       <Header />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-sidebar py-20 md:py-28">
-        <div className="absolute inset-0 opacity-10">
-          {[...Array(6)].map((_, i) => (
-            <Snowflake
-              key={i}
-              className="absolute text-white animate-pulse"
-              style={{
-                left: `${15 + i * 15}%`,
-                top: `${10 + (i % 3) * 30}%`,
-                width: `${20 + i * 5}px`,
-                height: `${20 + i * 5}px`,
-                animationDelay: `${i * 0.5}s`,
-              }}
+      {/* Hero – matches willeworldwide.se dark aesthetic */}
+      <section className="relative overflow-hidden bg-sidebar py-24 md:py-32">
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-30"
+          style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1551524559-8af4e6624178?w=1600&q=80)' }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-sidebar/90 via-sidebar/70 to-sidebar/40" />
+        <div className="container relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+            className="max-w-2xl"
+          >
+            <img
+              src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/full-logo-wille-worldwide-vittext-rgb.png?media=1766889486"
+              alt="WilleWorldWide"
+              className="mb-8 h-14 w-auto md:h-20"
             />
-          ))}
-        </div>
-        <div className="container relative z-10 text-center">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
-            <div className="mb-6 flex justify-center">
-              <Mountain className="h-12 w-12 text-primary" />
-            </div>
-            <h1 className="font-heading text-4xl font-extrabold tracking-tight text-white md:text-5xl lg:text-6xl">
-              Upplev världen med <span className="text-primary">Wille</span>
-            </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-lg text-white/70">
-              Skidresor, gruppresor och företagsäventyr. Anmäl dig enkelt och säkert till våra unika reseupplevelser.
+            <p className="text-lg italic text-sidebar-foreground/80 leading-relaxed md:text-xl">
+              Din personliga resebyrå för gruppresor – med specialitet på skidresor med buss. 
+              Anmäl dig enkelt och säkert till våra unika reseupplevelser.
             </p>
           </motion.div>
         </div>
@@ -105,7 +100,6 @@ const Index = () => {
           </div>
         ) : (
           <div className="py-20 text-center text-muted-foreground">
-            <Mountain className="mx-auto mb-4 h-12 w-12 opacity-30" />
             <p className="text-lg">Inga resor hittades.</p>
           </div>
         )}
