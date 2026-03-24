@@ -39,6 +39,7 @@ export interface Trip {
   currency: string;
   max_participants: number;
   show_spots_left: boolean;
+  spots_left_threshold?: number;
   image_url: string;
   image_position?: string;
   status: TripStatus;

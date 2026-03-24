@@ -54,7 +54,7 @@ const TripCard = ({ trip, registrationCount = 0 }: TripCardProps) => {
               <span className="flex items-center gap-1.5">
                 <CalendarDays className="h-3.5 w-3.5" /> {dateStr}
               </span>
-              {trip.show_spots_left && (
+              {trip.show_spots_left && (!trip.spots_left_threshold || spotsLeft <= trip.spots_left_threshold) && (
                 <span className="flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5" />
                   {spotsLeft > 0 ? `${spotsLeft} platser kvar` : 'Fullbokad'}

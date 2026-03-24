@@ -1,15 +1,21 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
+const navLinks = [
+  { to: '/dashboard', label: 'Dashboard' },
+  { to: '/dashboard/resor/ny', label: 'Skapa resa' },
+];
+
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const location = useLocation();
 
   return (
     <header className="sticky top-0 z-50 border-b border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2.5">
+        <Link to="/dashboard" className="flex items-center gap-2.5">
           <img
             src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/full-logo-wille-worldwide-vittext-rgb.png?media=1766889486"
             alt="WilleWorldWide"
@@ -18,12 +24,17 @@ const Header = () => {
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
-          <Link to="/" className="text-xs font-heading font-bold uppercase tracking-widest text-sidebar-foreground/80 transition-colors hover:text-sidebar-foreground">
-            Resor
-          </Link>
-          <Link to="/dashboard" className="text-xs font-heading font-bold uppercase tracking-widest text-sidebar-foreground/80 transition-colors hover:text-sidebar-foreground">
-            Admin
-          </Link>
+          {navLinks.map(link => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className={`text-xs font-heading font-bold uppercase tracking-widest transition-colors hover:text-sidebar-foreground ${
+                location.pathname === link.to ? 'text-sidebar-foreground' : 'text-sidebar-foreground/60'
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
         <Button
@@ -38,12 +49,18 @@ const Header = () => {
 
       {mobileOpen && (
         <div className="border-t border-sidebar-border px-4 pb-4 pt-2 md:hidden">
-          <Link to="/" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-heading font-bold uppercase tracking-widest text-sidebar-foreground/80">
-            Resor
-          </Link>
-          <Link to="/dashboard" onClick={() => setMobileOpen(false)} className="block py-2 text-sm font-heading font-bold uppercase tracking-widest text-sidebar-foreground/80">
-            Admin
-          </Link>
+          {navLinks.map(link => (
+            <Link
+              key={link.to}
+              to={link.to}
+              onClick={() => setMobileOpen(false)}
+              className={`block py-2 text-sm font-heading font-bold uppercase tracking-widest ${
+                location.pathname === link.to ? 'text-sidebar-foreground' : 'text-sidebar-foreground/60'
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
       )}
     </header>

@@ -56,6 +56,7 @@ const CreateTripPage = () => {
   const [price, setPrice] = useState(existingTrip?.price?.toString() || '');
   const [maxParticipants, setMaxParticipants] = useState(existingTrip?.max_participants?.toString() || '');
   const [showSpotsLeft, setShowSpotsLeft] = useState(existingTrip?.show_spots_left ?? true);
+  const [spotsLeftThreshold, setSpotsLeftThreshold] = useState(existingTrip?.spots_left_threshold?.toString() || '');
   const [imageUrl, setImageUrl] = useState(existingTrip?.image_url || '');
   const [status, setStatus] = useState<TripStatus>(existingTrip?.status || 'draft');
   const [formFields, setFormFields] = useState<FormField[]>(existingTrip?.form_fields || defaultFormFields);
@@ -106,6 +107,7 @@ const CreateTripPage = () => {
       currency: 'SEK',
       max_participants: Number(maxParticipants) || 50,
       show_spots_left: showSpotsLeft,
+      spots_left_threshold: spotsLeftThreshold ? Number(spotsLeftThreshold) : undefined,
       image_url: imageUrl.trim(),
       status,
       form_fields: formFields,
@@ -219,9 +221,17 @@ const CreateTripPage = () => {
                     <Label>Max deltagare</Label>
                     <Input type="number" value={maxParticipants} onChange={e => setMaxParticipants(e.target.value)} placeholder="50" />
                   </div>
-                  <div className="flex items-end gap-3 pb-1">
-                    <Switch checked={showSpotsLeft} onCheckedChange={setShowSpotsLeft} />
-                    <Label>Visa platser kvar</Label>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Switch checked={showSpotsLeft} onCheckedChange={setShowSpotsLeft} />
+                      <Label>Visa platser kvar</Label>
+                    </div>
+                    {showSpotsLeft && (
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Visa först när det är X platser kvar (lämna tomt = visa alltid)</Label>
+                        <Input type="number" value={spotsLeftThreshold} onChange={e => setSpotsLeftThreshold(e.target.value)} placeholder="t.ex. 10" />
+                      </div>
+                    )}
                   </div>
                 </div>
 
