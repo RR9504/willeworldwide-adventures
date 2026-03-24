@@ -32,19 +32,6 @@ const Dashboard = () => {
     return { unpaidRegs, missingPresentation, lowSpotsTrips };
   }, []);
 
-  // Find which trip has the most unpaid
-  const unpaidByTrip = useMemo(() => {
-    const map: Record<string, number> = {};
-    alerts.unpaidRegs.forEach(r => {
-      map[r.trip_id] = (map[r.trip_id] || 0) + 1;
-    });
-    // Return trip id with most unpaid
-    const entries = Object.entries(map);
-    if (entries.length === 0) return null;
-    entries.sort((a, b) => b[1] - a[1]);
-    return entries[0][0];
-  }, [alerts.unpaidRegs]);
-
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
       <Header />
@@ -64,7 +51,7 @@ const Dashboard = () => {
           {/* Unpaid */}
           <Card
             className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.unpaidRegs.length > 0 ? 'border-destructive/30' : ''}`}
-            onClick={() => unpaidByTrip && navigate(`/dashboard/resor/${unpaidByTrip}`)}
+            onClick={() => navigate('/dashboard/alerts/unpaid')}
           >
             <CardContent className="flex items-center gap-4 p-5">
               <div className={`rounded-lg p-2.5 ${alerts.unpaidRegs.length > 0 ? 'bg-destructive/10' : 'bg-accent'}`}>
@@ -80,10 +67,7 @@ const Dashboard = () => {
           {/* Missing presentation */}
           <Card
             className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.missingPresentation.length > 0 ? 'border-yellow-400/30' : ''}`}
-            onClick={() => {
-              const firstTrip = mockTrips.find(t => t.status === 'published');
-              if (firstTrip) navigate(`/dashboard/resor/${firstTrip.id}`);
-            }}
+            onClick={() => navigate('/dashboard/alerts/missing-presentation')}
           >
             <CardContent className="flex items-center gap-4 p-5">
               <div className={`rounded-lg p-2.5 ${alerts.missingPresentation.length > 0 ? 'bg-yellow-100' : 'bg-accent'}`}>
@@ -99,9 +83,7 @@ const Dashboard = () => {
           {/* Low spots */}
           <Card
             className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.lowSpotsTrips.length > 0 ? 'border-orange-400/30' : ''}`}
-            onClick={() => {
-              if (alerts.lowSpotsTrips.length > 0) navigate(`/dashboard/resor/${alerts.lowSpotsTrips[0].id}`);
-            }}
+            onClick={() => navigate('/dashboard/alerts/low-spots')}
           >
             <CardContent className="flex items-center gap-4 p-5">
               <div className={`rounded-lg p-2.5 ${alerts.lowSpotsTrips.length > 0 ? 'bg-orange-100' : 'bg-accent'}`}>

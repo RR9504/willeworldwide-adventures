@@ -11,6 +11,7 @@ import CreateTripPage from "./pages/CreateTripPage";
 import ParticipantDetailPage from "./pages/ParticipantDetailPage";
 import TripPresentationPage from "./pages/TripPresentationPage";
 import PresentationFormPage from "./pages/PresentationFormPage";
+import AlertListPage from "./pages/AlertListPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/resa/:id" element={<TripRegistrationPage />} />
           <Route path="/resa/:id/presentation/:regId" element={<PresentationFormPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/alerts/:type" element={<AlertListPage />} />
           <Route path="/dashboard/resor/ny" element={<CreateTripPage />} />
           <Route path="/dashboard/resor/:id/redigera" element={<CreateTripPage />} />
           <Route path="/dashboard/resor/:id/deltagare/:regId" element={<ParticipantDetailPage />} />
