@@ -57,7 +57,7 @@ const PresentationFormPage = () => {
       <main className="container max-w-2xl flex-1 py-8">
         <div className="mb-6 text-center">
           <img
-            src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/full-logo-wille-worldwide-vittext-rgb.png?media=1766889486"
+            src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/short-logo-wille-worldwide-vittext-rgb.png?media=1766889486"
             alt="WilleWorldWide"
             className="mx-auto mb-4 h-10 w-auto rounded bg-sidebar p-2"
           />

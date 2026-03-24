@@ -47,7 +47,7 @@ const Index = () => {
             className="max-w-2xl"
           >
             <img
-              src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/full-logo-wille-worldwide-vittext-rgb.png?media=1766889486"
+              src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/short-logo-wille-worldwide-vittext-rgb.png?media=1766889486"
               alt="WilleWorldWide"
               className="mb-8 h-14 w-auto md:h-20"
             />
