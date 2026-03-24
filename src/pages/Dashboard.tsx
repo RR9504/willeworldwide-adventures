@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom';
-import { Plus, CalendarDays, Users, TrendingUp } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus, CreditCard, FileText, AlertTriangle } from 'lucide-react';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,10 +15,35 @@ const statusVariants: Record<string, 'default' | 'secondary' | 'outline'> = {
 };
 
 const Dashboard = () => {
-  const totalTrips = mockTrips.length;
-  const publishedTrips = mockTrips.filter(t => t.status === 'published').length;
-  const totalRegistrations = mockRegistrations.length;
-  const paidCount = mockRegistrations.filter(r => r.payment_status === 'paid').length;
+  const navigate = useNavigate();
+
+  const alerts = useMemo(() => {
+    const unpaidRegs = mockRegistrations.filter(r => r.payment_status === 'unpaid');
+    const missingPresentation = mockRegistrations.filter(r => !r.presentation_data || Object.keys(r.presentation_data).length === 0);
+
+    const lowSpotsTrips = mockTrips
+      .filter(t => t.status === 'published')
+      .filter(t => {
+        const regCount = mockRegistrations.filter(r => r.trip_id === t.id).length;
+        const spotsLeft = t.max_participants - regCount;
+        return spotsLeft > 0 && spotsLeft <= 10;
+      });
+
+    return { unpaidRegs, missingPresentation, lowSpotsTrips };
+  }, []);
+
+  // Find which trip has the most unpaid
+  const unpaidByTrip = useMemo(() => {
+    const map: Record<string, number> = {};
+    alerts.unpaidRegs.forEach(r => {
+      map[r.trip_id] = (map[r.trip_id] || 0) + 1;
+    });
+    // Return trip id with most unpaid
+    const entries = Object.entries(map);
+    if (entries.length === 0) return null;
+    entries.sort((a, b) => b[1] - a[1]);
+    return entries[0][0];
+  }, [alerts.unpaidRegs]);
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
@@ -33,26 +59,60 @@ const Dashboard = () => {
           </Link>
         </div>
 
-        {/* Stats */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { label: 'Resor', value: totalTrips, icon: CalendarDays },
-            { label: 'Publicerade', value: publishedTrips, icon: TrendingUp },
-            { label: 'Anmälda', value: totalRegistrations, icon: Users },
-            { label: 'Betalda', value: paidCount, icon: Users },
-          ].map(stat => (
-            <Card key={stat.label}>
-              <CardContent className="flex items-center gap-4 p-5">
-                <div className="rounded-lg bg-accent p-2.5">
-                  <stat.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold font-heading">{stat.value}</p>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        {/* Actionable alerts */}
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Unpaid */}
+          <Card
+            className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.unpaidRegs.length > 0 ? 'border-destructive/30' : ''}`}
+            onClick={() => unpaidByTrip && navigate(`/dashboard/resor/${unpaidByTrip}`)}
+          >
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className={`rounded-lg p-2.5 ${alerts.unpaidRegs.length > 0 ? 'bg-destructive/10' : 'bg-accent'}`}>
+                <CreditCard className={`h-5 w-5 ${alerts.unpaidRegs.length > 0 ? 'text-destructive' : 'text-primary'}`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold font-heading">{alerts.unpaidRegs.length}</p>
+                <p className="text-sm text-muted-foreground">Inväntar betalning</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Missing presentation */}
+          <Card
+            className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.missingPresentation.length > 0 ? 'border-yellow-400/30' : ''}`}
+            onClick={() => {
+              const firstTrip = mockTrips.find(t => t.status === 'published');
+              if (firstTrip) navigate(`/dashboard/resor/${firstTrip.id}`);
+            }}
+          >
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className={`rounded-lg p-2.5 ${alerts.missingPresentation.length > 0 ? 'bg-yellow-100' : 'bg-accent'}`}>
+                <FileText className={`h-5 w-5 ${alerts.missingPresentation.length > 0 ? 'text-yellow-700' : 'text-primary'}`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold font-heading">{alerts.missingPresentation.length}</p>
+                <p className="text-sm text-muted-foreground">Saknar "Lär känna"-svar</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Low spots */}
+          <Card
+            className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.lowSpotsTrips.length > 0 ? 'border-orange-400/30' : ''}`}
+            onClick={() => {
+              if (alerts.lowSpotsTrips.length > 0) navigate(`/dashboard/resor/${alerts.lowSpotsTrips[0].id}`);
+            }}
+          >
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className={`rounded-lg p-2.5 ${alerts.lowSpotsTrips.length > 0 ? 'bg-orange-100' : 'bg-accent'}`}>
+                <AlertTriangle className={`h-5 w-5 ${alerts.lowSpotsTrips.length > 0 ? 'text-orange-600' : 'text-primary'}`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold font-heading">{alerts.lowSpotsTrips.length}</p>
+                <p className="text-sm text-muted-foreground">Resor med få platser kvar</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Trip List */}
@@ -63,7 +123,10 @@ const Dashboard = () => {
           <CardContent>
             <div className="space-y-3">
               {mockTrips.map(trip => {
-                const regCount = mockRegistrations.filter(r => r.trip_id === trip.id).length;
+                const regs = mockRegistrations.filter(r => r.trip_id === trip.id);
+                const regCount = regs.length;
+                const unpaidCount = regs.filter(r => r.payment_status === 'unpaid').length;
+                const missingPres = regs.filter(r => !r.presentation_data || Object.keys(r.presentation_data).length === 0).length;
                 return (
                   <Link
                     key={trip.id}
@@ -77,8 +140,18 @@ const Dashboard = () => {
                         <p className="text-sm text-muted-foreground">{trip.destination} · {new Date(trip.start_date).toLocaleDateString('sv-SE')}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-muted-foreground">{regCount}/{trip.max_participants} anmälda</span>
+                    <div className="flex items-center gap-3">
+                      {unpaidCount > 0 && (
+                        <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                          {unpaidCount} obetald{unpaidCount > 1 ? 'a' : ''}
+                        </span>
+                      )}
+                      {missingPres > 0 && (
+                        <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                          {missingPres} utan svar
+                        </span>
+                      )}
+                      <span className="text-sm text-muted-foreground">{regCount}/{trip.max_participants}</span>
                       <Badge variant={statusVariants[trip.status]}>{statusLabels[trip.status]}</Badge>
                     </div>
                   </Link>
