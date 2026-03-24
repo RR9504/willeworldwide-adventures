@@ -27,6 +27,13 @@ export interface FormField {
   countsAsParticipant?: boolean;
 }
 
+export interface PresentationQuestion {
+  id: string;
+  question: string;
+  type: 'text' | 'textarea';
+  placeholder?: string;
+}
+
 export interface Trip {
   id: string;
   title: string;
@@ -44,6 +51,7 @@ export interface Trip {
   image_position?: string;
   status: TripStatus;
   form_fields: FormField[];
+  presentation_fields: PresentationQuestion[];
   created_at: string;
   updated_at: string;
 }
@@ -54,6 +62,7 @@ export interface Registration {
   id: string;
   trip_id: string;
   form_data: Record<string, any>;
+  presentation_data?: Record<string, string>;
   payment_status: PaymentStatus;
   payment_note?: string;
   created_at: string;

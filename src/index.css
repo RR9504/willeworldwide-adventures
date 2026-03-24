@@ -94,3 +94,17 @@
     @apply font-heading;
   }
 }
+
+@media print {
+  .print\:hidden, header, .print\:hidden * {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .break-inside-avoid {
+    break-inside: avoid;
+  }
+}

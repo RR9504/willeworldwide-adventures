@@ -26,6 +26,50 @@ const paymentStatuses: Registration['payment_status'][] = ['paid', 'paid', 'paid
 const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 const pnr = (i: number) => `19${85 + (i % 15)}${String(1 + (i % 12)).padStart(2, '0')}${String(1 + (i % 28)).padStart(2, '0')}-${String(1000 + i * 137 % 9000)}`;
 
+const cities = ['Kalmar', 'Växjö', 'Stockholm', 'Malmö', 'Göteborg', 'Karlskrona', 'Lund', 'Kristianstad', 'Nybro', 'Öland'];
+const jobs = ['Lärare', 'Sjuksköterska', 'Ingenjör', 'Säljare', 'Egenföretagare', 'Student', 'Pensionär', 'IT-konsult', 'Snickare', 'Kock'];
+const skiLevels = ['Nybörjare', 'Medel', 'Avancerad', 'Expert – jag kör offpist!', 'Första gången!'];
+const dreamDests = ['Japan', 'Nya Zeeland', 'Kanada', 'Schweiz', 'Island', 'Patagonia', 'Maldiverna'];
+const talents = ['Kan jonglera', 'Spelar ukulele', 'Gör bästa lasagnen', 'Kan alla huvudstäder', 'Sjunger i kör', 'Löser Rubiks kub på under 2 min', 'Virkar', 'Imiterar djurläten'];
+const songs = ['ABBA – Dancing Queen', 'Håkan Hellström – Känn ingen sorg', 'Avicii – Wake Me Up', 'Veronica Maggio – Hela huset', 'Ed Sheeran – Shape of You', 'Toto – Africa'];
+const morningNight = ['Morgon!', 'Nattuggla', 'Mitt emellan', 'Beror på om det är semester'];
+const bagItems = ['Solglasögon', 'Huvudvärkstabletter', 'En bra bok', 'Tuggummi', 'Laddare', 'Snacks', 'Hörlurar'];
+const lookingForward = ['Skidåkningen såklart!', 'Umgänget och att träffa nya vänner', 'After ski! 🍻', 'Maten – älskar italienskt', 'Bussresan och gemenskapen', 'Allt! Har längtat länge'];
+const friendDescribe = ['Social, glad och alltid hungrig', 'Lugn men rolig när man lär känna hen', 'Energibomb!', 'Den som alltid har en plan', 'Pålitlig och omtänksam', 'Festpransen i gruppen'];
+const aboutMe = [
+  'Bor i {city} med familjen, älskar att resa och upptäcka nya platser!',
+  'Jobbar som {job} men drömmer om att vara på semester året runt.',
+  'Sportfantast som älskar allt från skidåkning till padel.',
+  '{job} från {city}. Gillar god mat, bra musik och äventyr.',
+  'Har rest mycket i Europa men detta blir första gången med WilleWorldWide!',
+  'Bor ensam i {city} med katten. Söker nya vänner och äventyr!',
+];
+
+function generatePresentationData(nameIdx: number): Record<string, string> | undefined {
+  // ~70% of registrations have filled in presentation
+  if (Math.random() < 0.3) return undefined;
+  const city = cities[nameIdx % cities.length];
+  const job = jobs[nameIdx % jobs.length];
+  const about = pick(aboutMe).replace('{city}', city).replace('{job}', job);
+  return {
+    'Berätta lite om dig själv!': about,
+    'Varifrån kommer du?': city,
+    'Hur gammal är du?': String(25 + (nameIdx * 3) % 40),
+    'Vad jobbar du med?': job,
+    'Har du rest med WilleWorldWide förut?': nameIdx % 3 === 0 ? 'Ja, skidresa 2024!' : 'Nej, första gången!',
+    'Vad ser du mest fram emot på resan?': pick(lookingForward),
+    'Hur skulle dina vänner beskriva dig?': pick(friendDescribe),
+    'Vad är din skidvana? (skidresor)': pick(skiLevels),
+    'Favoritdestination du besökt?': pick(dreamDests),
+    'Drömresa?': pick(dreamDests),
+    'Dold talang?': pick(talents),
+    'Favoritlåt just nu?': pick(songs),
+    'Morgonmänniska eller nattuggla?': pick(morningNight),
+    'Vad finns alltid i din väska?': pick(bagItems),
+    'Något mer du vill att medresenärerna ska veta?': nameIdx % 4 === 0 ? 'Jag tar gärna en öl med vem som helst! Bara häng på!' : '',
+  };
+}
+
 function generateSkiReg(id: string, tripId: string, nameIdx: number, dateOffset: number): Registration {
   const [first, last] = names[nameIdx % names.length];
   const wantsRental = Math.random() > 0.5;
@@ -65,6 +109,7 @@ function generateSkiReg(id: string, tripId: string, nameIdx: number, dateOffset:
   const created = `2025-${String(7 + Math.floor(dateOffset / 30)).padStart(2, '0')}-${String(1 + dateOffset % 28).padStart(2, '0')}`;
   return {
     id, trip_id: tripId, form_data: formData,
+    presentation_data: generatePresentationData(nameIdx),
     payment_status: pick(paymentStatuses),
     created_at: created, updated_at: created,
   };
@@ -102,6 +147,7 @@ function generateBremenReg(id: string, nameIdx: number, dateOffset: number): Reg
   const created = `2025-09-${String(1 + dateOffset % 28).padStart(2, '0')}`;
   return {
     id, trip_id: '4', form_data: formData,
+    presentation_data: generatePresentationData(nameIdx),
     payment_status: pick(paymentStatuses),
     created_at: created, updated_at: created,
   };

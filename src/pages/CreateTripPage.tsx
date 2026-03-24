@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import Header from '@/components/layout/Header';
 import FormFieldList from '@/components/admin/FormFieldList';
 import FormPreview from '@/components/admin/FormPreview';
-import { Trip, TripCategory, TripStatus, FormField, FormFieldType } from '@/types/trip';
+import { Trip, TripCategory, TripStatus, FormField, FormFieldType, PresentationQuestion } from '@/types/trip';
 import { mockTrips } from '@/data/mockTrips';
 import { toast } from 'sonner';
 
@@ -37,8 +37,18 @@ const defaultFormFields: FormField[] = [
   { id: 'default-4', type: 'phone', label: 'Telefon', required: true, placeholder: '070-123 45 67' },
 ];
 
+const defaultPresentationFields: PresentationQuestion[] = [
+  { id: 'pq-1', question: 'Berätta lite om dig själv!', type: 'textarea', placeholder: 'Vem är du? Vad gör du till vardags?' },
+  { id: 'pq-2', question: 'Varifrån kommer du?', type: 'text', placeholder: 'Stad/ort' },
+  { id: 'pq-3', question: 'Hur gammal är du?', type: 'text', placeholder: 'Ålder' },
+  { id: 'pq-4', question: 'Vad jobbar du med?', type: 'text', placeholder: 'Yrke/sysselsättning' },
+  { id: 'pq-5', question: 'Vad ser du mest fram emot på resan?', type: 'textarea', placeholder: 'Skidåkningen, umgänget, maten...?' },
+];
+
 let fieldCounter = 100;
 const generateFieldId = () => `field-${++fieldCounter}`;
+let pqCounter = 100;
+const generatePqId = () => `pq-${++pqCounter}`;
 
 const CreateTripPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -60,6 +70,7 @@ const CreateTripPage = () => {
   const [imageUrl, setImageUrl] = useState(existingTrip?.image_url || '');
   const [status, setStatus] = useState<TripStatus>(existingTrip?.status || 'draft');
   const [formFields, setFormFields] = useState<FormField[]>(existingTrip?.form_fields || defaultFormFields);
+  const [presentationFields, setPresentationFields] = useState<PresentationQuestion[]>(existingTrip?.presentation_fields || defaultPresentationFields);
   const [saving, setSaving] = useState(false);
 
   const addField = (type: FormFieldType) => {
@@ -111,6 +122,7 @@ const CreateTripPage = () => {
       image_url: imageUrl.trim(),
       status,
       form_fields: formFields,
+      presentation_fields: presentationFields,
       created_at: existingTrip?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -146,7 +158,8 @@ const CreateTripPage = () => {
         <Tabs defaultValue="details" className="space-y-6">
           <TabsList>
             <TabsTrigger value="details">Reseinformation</TabsTrigger>
-            <TabsTrigger value="form">Formulärbyggare</TabsTrigger>
+            <TabsTrigger value="form">Anmälningsformulär</TabsTrigger>
+            <TabsTrigger value="presentation">Lär känna-frågor</TabsTrigger>
             <TabsTrigger value="preview" className="gap-1.5">
               <Eye className="h-3.5 w-3.5" /> Förhandsgranska
             </TabsTrigger>
@@ -308,7 +321,92 @@ const CreateTripPage = () => {
             </div>
           </TabsContent>
 
-          {/* Tab 3: Preview */}
+          {/* Tab 3: Presentation questions */}
+          <TabsContent value="presentation">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">Lär känna-frågor</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Frågor som skickas till varje deltagare efter anmälan. Svaren sammanställs till en deltagarpresentation.
+                    </p>
+                  </div>
+                  <span className="rounded bg-muted px-2 py-1 text-sm text-muted-foreground">
+                    {presentationFields.length} frågor
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {presentationFields.map((pf, idx) => (
+                  <div key={pf.id} className="flex items-start gap-3 rounded-lg border p-3">
+                    <span className="mt-1 text-sm font-medium text-muted-foreground">{idx + 1}.</span>
+                    <div className="flex-1 space-y-2">
+                      <Input
+                        value={pf.question}
+                        onChange={e => {
+                          const updated = [...presentationFields];
+                          updated[idx] = { ...pf, question: e.target.value };
+                          setPresentationFields(updated);
+                        }}
+                        placeholder="Skriv frågan..."
+                      />
+                      <div className="flex items-center gap-4">
+                        <Select
+                          value={pf.type}
+                          onValueChange={(v: 'text' | 'textarea') => {
+                            const updated = [...presentationFields];
+                            updated[idx] = { ...pf, type: v };
+                            setPresentationFields(updated);
+                          }}
+                        >
+                          <SelectTrigger className="w-36">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="text">Kort svar</SelectItem>
+                            <SelectItem value="textarea">Långt svar</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          value={pf.placeholder || ''}
+                          onChange={e => {
+                            const updated = [...presentationFields];
+                            updated[idx] = { ...pf, placeholder: e.target.value };
+                            setPresentationFields(updated);
+                          }}
+                          placeholder="Placeholder-text (valfritt)"
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="mt-1 h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => setPresentationFields(prev => prev.filter((_, i) => i !== idx))}
+                    >
+                      <span className="text-lg">×</span>
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPresentationFields(prev => [
+                    ...prev,
+                    { id: generatePqId(), question: '', type: 'text', placeholder: '' },
+                  ])}
+                  className="gap-1.5"
+                >
+                  <Plus className="h-3 w-3" /> Lägg till fråga
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab 4: Preview */}
           <TabsContent value="preview">
             <FormPreview fields={formFields} tripTitle={title} />
           </TabsContent>

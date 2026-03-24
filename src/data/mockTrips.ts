@@ -1,4 +1,22 @@
-import { Trip } from '@/types/trip';
+import { Trip, PresentationQuestion } from '@/types/trip';
+
+const defaultPresentationFields: PresentationQuestion[] = [
+  { id: 'p1', question: 'Berätta lite om dig själv!', type: 'textarea', placeholder: 'Vem är du? Vad gör du till vardags?' },
+  { id: 'p2', question: 'Varifrån kommer du?', type: 'text', placeholder: 'Stad/ort' },
+  { id: 'p3', question: 'Hur gammal är du?', type: 'text', placeholder: 'Ålder' },
+  { id: 'p4', question: 'Vad jobbar du med?', type: 'text', placeholder: 'Yrke/sysselsättning' },
+  { id: 'p5', question: 'Har du rest med WilleWorldWide förut?', type: 'text', placeholder: 'Ja/Nej – om ja, vilken resa?' },
+  { id: 'p6', question: 'Vad ser du mest fram emot på resan?', type: 'textarea', placeholder: 'Skidåkningen, umgänget, maten...?' },
+  { id: 'p7', question: 'Hur skulle dina vänner beskriva dig?', type: 'textarea', placeholder: 'Tre ord eller en mening' },
+  { id: 'p8', question: 'Vad är din skidvana? (skidresor)', type: 'text', placeholder: 'Nybörjare / Medel / Avancerad' },
+  { id: 'p9', question: 'Favoritdestination du besökt?', type: 'text', placeholder: 'Land, stad...' },
+  { id: 'p10', question: 'Drömresa?', type: 'text', placeholder: 'Vart vill du åka?' },
+  { id: 'p11', question: 'Dold talang?', type: 'text', placeholder: 'Något oväntat du kan!' },
+  { id: 'p12', question: 'Favoritlåt just nu?', type: 'text', placeholder: 'Artist – Låt' },
+  { id: 'p13', question: 'Morgonmänniska eller nattuggla?', type: 'text', placeholder: 'Morgon / Natt / Mitt emellan' },
+  { id: 'p14', question: 'Vad finns alltid i din väska?', type: 'text', placeholder: 'Den där grejen du aldrig reser utan' },
+  { id: 'p15', question: 'Något mer du vill att medresenärerna ska veta?', type: 'textarea', placeholder: 'Fritt ord!' },
+];
 
 export const mockTrips: Trip[] = [
   {
@@ -56,6 +74,7 @@ export const mockTrips: Trip[] = [
       { id: 'f12', type: 'textarea', label: 'Allergier / specialkost', required: false, placeholder: 'Ange eventuella allergier eller kostpreferenser' },
       { id: 'f13', type: 'textarea', label: 'Övriga önskemål', required: false, placeholder: 'Meddelande till arrangören' },
     ],
+    presentation_fields: defaultPresentationFields,
     created_at: '2025-06-01',
     updated_at: '2025-09-15',
   },
@@ -111,6 +130,7 @@ export const mockTrips: Trip[] = [
       { id: 'f12', type: 'textarea', label: 'Allergier / specialkost', required: false },
       { id: 'f13', type: 'textarea', label: 'Övriga önskemål', required: false },
     ],
+    presentation_fields: defaultPresentationFields,
     created_at: '2025-06-01',
     updated_at: '2025-09-15',
   },
@@ -166,6 +186,7 @@ export const mockTrips: Trip[] = [
       { id: 'f12', type: 'textarea', label: 'Allergier / specialkost', required: false },
       { id: 'f13', type: 'textarea', label: 'Övriga önskemål', required: false },
     ],
+    presentation_fields: defaultPresentationFields,
     created_at: '2025-06-01',
     updated_at: '2025-09-15',
   },
@@ -210,6 +231,7 @@ export const mockTrips: Trip[] = [
       { id: 'f10', type: 'textarea', label: 'Allergier / specialkost', required: false, placeholder: 'Ange eventuella allergier eller kostpreferenser' },
       { id: 'f11', type: 'textarea', label: 'Övriga önskemål', required: false, placeholder: 'Meddelande till arrangören' },
     ],
+    presentation_fields: defaultPresentationFields,
     created_at: '2025-09-01',
     updated_at: '2025-09-15',
   },
