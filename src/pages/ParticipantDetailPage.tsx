@@ -1,10 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, User, CreditCard, FileText, MessageCircle } from 'lucide-react';
+import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import Header from '@/components/layout/Header';
-import { mockTrips, mockRegistrations } from '@/data/mockTrips';
+import { useTrip, useRegistrations } from '@/hooks/useTrips';
 import { PaymentStatus } from '@/types/trip';
 
 const paymentLabels: Record<PaymentStatus, string> = {
@@ -19,18 +17,16 @@ const paymentColors: Record<PaymentStatus, string> = {
 
 const ParticipantDetailPage = () => {
   const { id, regId } = useParams<{ id: string; regId: string }>();
-  const trip = mockTrips.find(t => t.id === id);
-  const reg = mockRegistrations.find(r => r.id === regId && r.trip_id === id);
+  const { data: trip, isLoading: tripLoading } = useTrip(id);
+  const { data: registrations = [], isLoading: regsLoading } = useRegistrations(id);
+  const reg = registrations.find(r => r.id === regId);
+
+  if (tripLoading || regsLoading) {
+    return (<div className="flex min-h-screen flex-col"><Header /><div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></div>);
+  }
 
   if (!trip || !reg) {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <Header />
-        <div className="container flex flex-1 items-center justify-center">
-          <p>Deltagaren hittades inte</p>
-        </div>
-      </div>
-    );
+    return (<div className="flex min-h-screen flex-col"><Header /><div className="container flex flex-1 items-center justify-center"><p>Deltagaren hittades inte</p></div></div>);
   }
 
   const name = `${reg.form_data['Förnamn'] || ''} ${reg.form_data['Efternamn'] || ''}`.trim() || 'Okänd';
@@ -50,13 +46,8 @@ const ParticipantDetailPage = () => {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Booking info */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <User className="h-5 w-5 text-primary" /> Bokningsinformation
-              </CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><User className="h-5 w-5 text-primary" /> Bokningsinformation</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {trip.form_fields.map(field => {
@@ -69,7 +60,6 @@ const ParticipantDetailPage = () => {
                     </div>
                   );
                 })}
-                {/* Conditional field values */}
                 {trip.form_fields
                   .filter(f => f.conditionalFields && reg.form_data[f.label])
                   .flatMap(f => f.conditionalFields || [])
@@ -87,63 +77,39 @@ const ParticipantDetailPage = () => {
             </CardContent>
           </Card>
 
-          {/* Payment */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <CreditCard className="h-5 w-5 text-primary" /> Betalning
-              </CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CreditCard className="h-5 w-5 text-primary" /> Betalning</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Status</span>
-                  <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${paymentColors[reg.payment_status]}`}>
-                    {paymentLabels[reg.payment_status]}
-                  </span>
+                  <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${paymentColors[reg.payment_status]}`}>{paymentLabels[reg.payment_status]}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Pris</span>
                   <span className="text-sm font-medium">{trip.price.toLocaleString('sv-SE')} {trip.currency}</span>
                 </div>
-                {reg.payment_note && (
-                  <div>
-                    <span className="text-sm text-muted-foreground">Anteckning</span>
-                    <p className="mt-1 text-sm">{reg.payment_note}</p>
-                  </div>
-                )}
+                {reg.payment_note && (<div><span className="text-sm text-muted-foreground">Anteckning</span><p className="mt-1 text-sm">{reg.payment_note}</p></div>)}
               </div>
             </CardContent>
           </Card>
 
-          {/* Presentation / Lär känna */}
           <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <MessageCircle className="h-5 w-5 text-primary" /> Lär känna – svar
-              </CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><MessageCircle className="h-5 w-5 text-primary" /> Lär känna – svar</CardTitle></CardHeader>
             <CardContent>
               {hasPresentationData ? (
                 <div className="grid gap-4 md:grid-cols-2">
                   {trip.presentation_fields.map(pf => {
                     const answer = reg.presentation_data?.[pf.question];
                     if (!answer) return null;
-                    return (
-                      <div key={pf.id} className="space-y-1">
-                        <p className="text-sm font-medium text-muted-foreground">{pf.question}</p>
-                        <p className="text-sm">{answer}</p>
-                      </div>
-                    );
+                    return (<div key={pf.id} className="space-y-1"><p className="text-sm font-medium text-muted-foreground">{pf.question}</p><p className="text-sm">{answer}</p></div>);
                   })}
                 </div>
               ) : (
                 <div className="py-8 text-center">
                   <FileText className="mx-auto h-10 w-10 text-muted-foreground/40" />
                   <p className="mt-2 text-sm text-muted-foreground">Har inte fyllt i presentationsformuläret ännu</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Länk: {window.location.origin}/resa/{trip.id}/presentation/{reg.id}
-                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">Länk: {window.location.origin}/resa/{trip.id}/presentation/{reg.id}</p>
                 </div>
               )}
             </CardContent>

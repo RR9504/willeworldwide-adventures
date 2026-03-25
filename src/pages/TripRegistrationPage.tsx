@@ -1,10 +1,10 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import { CalendarDays, MapPin, Users, Share2 } from 'lucide-react';
+import { CalendarDays, MapPin, Users, Share2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import DynamicForm from '@/components/trips/DynamicForm';
-import { mockTrips, mockRegistrations } from '@/data/mockTrips';
+import { useTrip, useRegistrations, useCreateRegistration } from '@/hooks/useTrips';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -16,7 +16,17 @@ const TripRegistrationPage = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const isEmbed = searchParams.get('embed') === 'true';
-  const trip = mockTrips.find(t => t.id === id);
+  const { data: trip, isLoading: tripLoading } = useTrip(id);
+  const { data: registrations = [] } = useRegistrations(id);
+  const createRegistration = useCreateRegistration();
+
+  if (tripLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!trip) {
     return (
@@ -29,7 +39,7 @@ const TripRegistrationPage = () => {
     );
   }
 
-  const regCount = mockRegistrations.filter(r => r.trip_id === trip.id).length;
+  const regCount = registrations.length;
   const spotsLeft = trip.max_participants - regCount;
   const startDate = new Date(trip.start_date);
   const endDate = new Date(trip.end_date);
@@ -40,14 +50,17 @@ const TripRegistrationPage = () => {
     toast.success('Länk kopierad!');
   };
 
-  const handleSubmit = (data: Record<string, any>) => {
-    console.log('Registration submitted:', data);
-    toast.success('Anmälan skickad!');
+  const handleSubmit = async (data: Record<string, any>) => {
+    try {
+      await createRegistration.mutateAsync({ trip_id: trip.id, form_data: data });
+      toast.success('Anmälan skickad!');
+    } catch {
+      toast.error('Något gick fel. Försök igen.');
+    }
   };
 
   return (
     <div className={`flex min-h-screen flex-col ${isEmbed ? 'bg-transparent' : 'bg-muted/30'}`}>
-      {/* Hero — hidden in embed mode */}
       {!isEmbed && (
         <div className="relative h-64 overflow-hidden md:h-80">
           <img src={trip.image_url} alt={trip.title} className="h-full w-full object-cover" />
@@ -62,7 +75,6 @@ const TripRegistrationPage = () => {
       )}
 
       <main className={`flex-1 ${isEmbed ? 'p-4' : 'container py-8'}`}>
-        {/* Embed mode: compact title */}
         {isEmbed && (
           <div className="mb-4">
             <Badge className="mb-2 bg-primary text-primary-foreground">{categoryLabels[trip.category]}</Badge>
@@ -71,31 +83,14 @@ const TripRegistrationPage = () => {
         )}
 
         <div className="grid gap-8 lg:grid-cols-3">
-          {/* Info sidebar */}
-          <motion.div
-            className="lg:col-span-1"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-          >
+          <motion.div className="lg:col-span-1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Reseinformation</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg">Reseinformation</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  <span>{trip.destination}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <CalendarDays className="h-4 w-4 text-primary" />
-                  <span>{dateStr}</span>
-                </div>
+                <div className="flex items-center gap-2 text-sm"><MapPin className="h-4 w-4 text-primary" /><span>{trip.destination}</span></div>
+                <div className="flex items-center gap-2 text-sm"><CalendarDays className="h-4 w-4 text-primary" /><span>{dateStr}</span></div>
                 {trip.show_spots_left && (!trip.spots_left_threshold || spotsLeft <= trip.spots_left_threshold) && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="h-4 w-4 text-primary" />
-                    <span>{spotsLeft > 0 ? `${spotsLeft} av ${trip.max_participants} platser kvar` : 'Fullbokad'}</span>
-                  </div>
+                  <div className="flex items-center gap-2 text-sm"><Users className="h-4 w-4 text-primary" /><span>{spotsLeft > 0 ? `${spotsLeft} av ${trip.max_participants} platser kvar` : 'Fullbokad'}</span></div>
                 )}
                 <div className="rounded-lg bg-accent p-4 text-center">
                   <p className="text-sm text-muted-foreground">Pris från</p>
@@ -103,25 +98,15 @@ const TripRegistrationPage = () => {
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed">{trip.description}</p>
                 {!isEmbed && (
-                  <Button variant="outline" size="sm" className="w-full gap-2" onClick={handleShare}>
-                    <Share2 className="h-4 w-4" /> Dela resa
-                  </Button>
+                  <Button variant="outline" size="sm" className="w-full gap-2" onClick={handleShare}><Share2 className="h-4 w-4" /> Dela resa</Button>
                 )}
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* Form */}
-          <motion.div
-            className="lg:col-span-2"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
+          <motion.div className="lg:col-span-2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Anmälan</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg">Anmälan</CardTitle></CardHeader>
               <CardContent>
                 {spotsLeft <= 0 ? (
                   <div className="py-8 text-center">
@@ -137,7 +122,6 @@ const TripRegistrationPage = () => {
         </div>
       </main>
 
-      {/* Minimal footer — only in standalone mode */}
       {!isEmbed && (
         <footer className="border-t py-6 text-center text-xs text-muted-foreground">
           © {new Date().getFullYear()} WilleWorldWide
