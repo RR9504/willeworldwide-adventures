@@ -18,30 +18,30 @@ export const formTemplates: FormTemplate[] = [
       { id: 'tf-3', type: 'text', label: 'Personnummer', required: true, placeholder: 'YYYYMMDD-XXXX' },
       { id: 'tf-4', type: 'phone', label: 'Telefon', required: true, placeholder: '070-123 45 67' },
       { id: 'tf-5', type: 'email', label: 'E-post', required: true, placeholder: 'din@email.se' },
-      { id: 'tf-6', type: 'select', label: 'Kontaktväg', required: true, options: [
+      { id: 'tf-6', type: 'select', label: 'Kontaktväg', required: true, showInSummary: true, options: [
         { label: 'Facebook-grupp', value: 'facebook' },
         { label: 'SMS', value: 'sms' },
         { label: 'Mail', value: 'mail' },
       ]},
-      { id: 'tf-7', type: 'select', label: 'Påstigningsplats', required: true, options: [
+      { id: 'tf-7', type: 'select', label: 'Påstigningsplats', required: true, showInSummary: true, options: [
         { label: 'Kalmar', value: 'kalmar' },
         { label: 'Karlskrona', value: 'karlskrona' },
         { label: 'Kristianstad', value: 'kristianstad' },
         { label: 'Lund', value: 'lund' },
         { label: 'Hyllie (Malmö)', value: 'hyllie' },
       ]},
-      { id: 'tf-8', type: 'select', label: 'Hotell', required: true, options: [
+      { id: 'tf-8', type: 'select', label: 'Hotell', required: true, showInSummary: true, options: [
         { label: 'Hotell 1', value: 'hotell-1' },
         { label: 'Hotell 2', value: 'hotell-2' },
       ]},
-      { id: 'tf-9', type: 'select', label: 'Rumstyp', required: true, options: [
+      { id: 'tf-9', type: 'select', label: 'Rumstyp', required: true, showInSummary: true, options: [
         { label: 'Enkelrum', value: 'single' },
         { label: 'Dubbelrum', value: 'double' },
         { label: '3-bäddsrum', value: 'triple' },
         { label: '4-bäddsrum', value: 'quad' },
       ]},
       { id: 'tf-10', type: 'text', label: 'Rumskompis', required: false, placeholder: 'Namn på person du vill dela rum med' },
-      { id: 'tf-11', type: 'checkbox', label: 'Liftkort', required: false, conditionalFields: [
+      { id: 'tf-11', type: 'checkbox', label: 'Liftkort', required: false, showInSummary: true, conditionalFields: [
         { type: 'select', label: 'Typ av liftkort', required: true, options: [
           { label: 'Vuxen', value: 'vuxen' },
           { label: 'Senior', value: 'senior' },
@@ -54,7 +54,7 @@ export const formTemplates: FormTemplate[] = [
           { label: '8 dagar', value: '8' },
         ]},
       ]},
-      { id: 'tf-12', type: 'checkbox', label: 'Skidhyra', required: false, conditionalFields: [
+      { id: 'tf-12', type: 'checkbox', label: 'Skidhyra', required: false, showInSummary: true, conditionalFields: [
         { type: 'select', label: 'Typ av utrustning', required: true, options: [
           { label: 'Slalom', value: 'alpine' },
           { label: 'Snowboard', value: 'snowboard' },
@@ -68,9 +68,9 @@ export const formTemplates: FormTemplate[] = [
           { label: '46', value: '46' },
         ]},
       ]},
-      { id: 'tf-13', type: 'textarea', label: 'Allergier / specialkost', required: false, placeholder: 'Ange eventuella allergier eller kostpreferenser' },
-      { id: 'tf-14', type: 'text', label: 'Favoritchoklad', required: false, placeholder: 'Vilken är din favoritchoklad?' },
-      { id: 'tf-15', type: 'checkbox', label: 'Buffé (ditresan)', required: false },
+      { id: 'tf-13', type: 'textarea', label: 'Allergier / specialkost', required: false, showInSummary: true, placeholder: 'Ange eventuella allergier eller kostpreferenser' },
+      { id: 'tf-14', type: 'text', label: 'Favoritchoklad', required: false, showInSummary: true, placeholder: 'Vilken är din favoritchoklad?' },
+      { id: 'tf-15', type: 'checkbox', label: 'Buffé (ditresan)', required: false, showInSummary: true },
       { id: 'tf-16', type: 'textarea', label: 'Övrigt', required: false, placeholder: 'Meddelande till arrangören' },
     ],
   },
@@ -84,25 +84,25 @@ export const formTemplates: FormTemplate[] = [
       { id: 'tf-3', type: 'text', label: 'Personnummer', required: true, placeholder: 'YYYYMMDD-XXXX' },
       { id: 'tf-4', type: 'phone', label: 'Telefon', required: true, placeholder: '070-123 45 67' },
       { id: 'tf-5', type: 'email', label: 'E-post', required: true, placeholder: 'din@email.se' },
-      { id: 'tf-6', type: 'select', label: 'Kontaktväg', required: true, options: [
+      { id: 'tf-6', type: 'select', label: 'Kontaktväg', required: true, showInSummary: true, options: [
         { label: 'Facebook-grupp', value: 'facebook' },
         { label: 'SMS', value: 'sms' },
         { label: 'Mail', value: 'mail' },
       ]},
-      { id: 'tf-7', type: 'select', label: 'Påstigningsplats', required: true, options: [
+      { id: 'tf-7', type: 'select', label: 'Påstigningsplats', required: true, showInSummary: true, options: [
         { label: 'Kalmar', value: 'kalmar' },
         { label: 'Karlskrona', value: 'karlskrona' },
         { label: 'Kristianstad', value: 'kristianstad' },
         { label: 'Lund', value: 'lund' },
         { label: 'Hyllie (Malmö)', value: 'hyllie' },
       ]},
-      { id: 'tf-8', type: 'select', label: 'Rumstyp', required: true, options: [
+      { id: 'tf-8', type: 'select', label: 'Rumstyp', required: true, showInSummary: true, options: [
         { label: 'Enkelrum', value: 'single' },
         { label: 'Dubbelrum', value: 'double' },
       ]},
       { id: 'tf-9', type: 'text', label: 'Rumskompis', required: false, placeholder: 'Namn på person du vill dela rum med' },
-      { id: 'tf-10', type: 'textarea', label: 'Allergier / specialkost', required: false, placeholder: 'Ange eventuella allergier eller kostpreferenser' },
-      { id: 'tf-11', type: 'text', label: 'Favoritchoklad', required: false, placeholder: 'Vilken är din favoritchoklad?' },
+      { id: 'tf-10', type: 'textarea', label: 'Allergier / specialkost', required: false, showInSummary: true, placeholder: 'Ange eventuella allergier eller kostpreferenser' },
+      { id: 'tf-11', type: 'text', label: 'Favoritchoklad', required: false, showInSummary: true, placeholder: 'Vilken är din favoritchoklad?' },
       { id: 'tf-12', type: 'textarea', label: 'Övrigt', required: false, placeholder: 'Meddelande till arrangören' },
     ],
   },

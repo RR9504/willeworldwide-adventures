@@ -61,24 +61,38 @@ const TripDetailsPage = () => {
     return registrations.filter(r => getColumnValue(r, filterField) === filterValue);
   }, [registrations, filterField, filterValue]);
 
+  // Summary: discrete fields (select/checkbox) get counts, text fields get a list of unique values
   const summary = useMemo(() => {
-    if (!trip) return {};
+    if (!trip) return { counts: {}, lists: {} };
     const counts: Record<string, Record<string, number>> = {};
-    // Form fields with discrete values
-    trip.form_fields.filter(f => f.type === 'select' || f.type === 'checkbox').forEach(field => {
-      counts[field.label] = {};
-      registrations.forEach(r => {
-        const val = getColumnValue(r, field.label);
-        if (val) counts[field.label][val] = (counts[field.label][val] || 0) + 1;
-      });
+    const lists: Record<string, string[]> = {};
+
+    trip.form_fields.filter(f => f.showInSummary).forEach(field => {
+      if (field.type === 'select' || field.type === 'checkbox') {
+        counts[field.label] = {};
+        registrations.forEach(r => {
+          const val = getColumnValue(r, field.label);
+          if (val) counts[field.label][val] = (counts[field.label][val] || 0) + 1;
+        });
+      } else {
+        // Text/textarea/email/phone — collect unique non-empty values
+        const values: string[] = [];
+        registrations.forEach(r => {
+          const val = getColumnValue(r, field.label);
+          if (val) values.push(val);
+        });
+        if (values.length > 0) lists[field.label] = values;
+      }
     });
-    // Payment status
+
+    // Payment status always included
     counts['Betalningsstatus'] = {};
     registrations.forEach(r => {
       const val = paymentLabels[r.payment_status];
       counts['Betalningsstatus'][val] = (counts['Betalningsstatus'][val] || 0) + 1;
     });
-    return counts;
+
+    return { counts, lists };
   }, [registrations, trip]);
 
   if (!trip) {
@@ -152,12 +166,13 @@ const TripDetailsPage = () => {
         </div>
 
         {/* Summary */}
-        {Object.keys(summary).length > 0 && (
+        {(Object.keys(summary.counts).length > 0 || Object.keys(summary.lists).length > 0) && (
           <Card className="mb-6">
             <CardHeader><CardTitle className="text-lg">Sammanställning</CardTitle></CardHeader>
             <CardContent>
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {Object.entries(summary).map(([field, values]) => (
+                {/* Discrete fields: counts per value */}
+                {Object.entries(summary.counts).map(([field, values]) => (
                   <div key={field}>
                     <p className="mb-2 font-heading text-sm font-semibold">{field}</p>
                     <div className="space-y-1">
@@ -177,6 +192,17 @@ const TripDetailsPage = () => {
                           </button>
                         );
                       })}
+                    </div>
+                  </div>
+                ))}
+                {/* Text fields: list of values */}
+                {Object.entries(summary.lists).map(([field, values]) => (
+                  <div key={field}>
+                    <p className="mb-2 font-heading text-sm font-semibold">{field}</p>
+                    <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                      {values.map((val, i) => (
+                        <p key={i} className="text-sm text-muted-foreground truncate">• {val}</p>
+                      ))}
                     </div>
                   </div>
                 ))}

@@ -273,6 +273,11 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
               </div>
             )}
 
+            {/* Show in summary */}
+            <div className="flex items-center gap-3">
+              <Switch checked={field.showInSummary || false} onCheckedChange={v => update({ showInSummary: v })} />
+              <Label className="text-sm">Visa i sammanställning</Label>
+            </div>
           </div>
         )}
       </CardContent>
