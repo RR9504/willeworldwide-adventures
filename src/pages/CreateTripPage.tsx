@@ -15,6 +15,7 @@ import FormFieldList from '@/components/admin/FormFieldList';
 import FormPreview from '@/components/admin/FormPreview';
 import { Trip, TripCategory, TripStatus, FormField, FormFieldType, PresentationQuestion } from '@/types/trip';
 import { mockTrips } from '@/data/mockTrips';
+import { formTemplates } from '@/data/formTemplates';
 import { toast } from 'sonner';
 
 const categoryLabels: Record<TripCategory, string> = {
@@ -266,6 +267,34 @@ const CreateTripPage = () => {
           {/* Tab 2: Form builder */}
           <TabsContent value="form">
             <div className="space-y-4">
+              {/* Template selector — only for new trips */}
+              {!isEditing && (
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="mb-3 text-sm font-medium">Starta från mall</p>
+                    <div className="flex flex-wrap gap-2">
+                      {formTemplates.map(t => (
+                        <Button
+                          key={t.id}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setFormFields(t.fields.map((f, i) => ({ ...f, id: `tmpl-${i}` })));
+                            toast.success(`Mall "${t.name}" tillämpad`);
+                          }}
+                        >
+                          {t.name}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Välj en mall för att fylla i standardfält. Du kan sedan anpassa fritt.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">

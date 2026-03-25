@@ -18,6 +18,65 @@ const defaultPresentationFields: PresentationQuestion[] = [
   { id: 'p15', question: 'Något mer du vill att medresenärerna ska veta?', type: 'textarea', placeholder: 'Fritt ord!' },
 ];
 
+const skiFormFields = (hotelOptions: { label: string; value: string }[]) => [
+  { id: 'f1', type: 'text' as const, label: 'Förnamn', required: true, placeholder: 'Ditt förnamn' },
+  { id: 'f2', type: 'text' as const, label: 'Efternamn', required: true, placeholder: 'Ditt efternamn' },
+  { id: 'f3', type: 'text' as const, label: 'Personnummer', required: true, placeholder: 'YYYYMMDD-XXXX' },
+  { id: 'f4', type: 'phone' as const, label: 'Telefon', required: true, placeholder: '070-123 45 67' },
+  { id: 'f5', type: 'email' as const, label: 'E-post', required: true, placeholder: 'din@email.se' },
+  { id: 'f6', type: 'select' as const, label: 'Kontaktväg', required: true, options: [
+    { label: 'Facebook-grupp', value: 'facebook' },
+    { label: 'SMS', value: 'sms' },
+    { label: 'Mail', value: 'mail' },
+  ]},
+  { id: 'f7', type: 'select' as const, label: 'Påstigningsplats', required: true, options: [
+    { label: 'Kalmar', value: 'kalmar' },
+    { label: 'Karlskrona', value: 'karlskrona' },
+    { label: 'Kristianstad', value: 'kristianstad' },
+    { label: 'Lund', value: 'lund' },
+    { label: 'Hyllie (Malmö)', value: 'hyllie' },
+  ]},
+  { id: 'f8', type: 'select' as const, label: 'Hotell', required: true, options: hotelOptions },
+  { id: 'f9', type: 'select' as const, label: 'Rumstyp', required: true, options: [
+    { label: 'Enkelrum', value: 'single' },
+    { label: 'Dubbelrum', value: 'double' },
+    { label: '3-bäddsrum', value: 'triple' },
+    { label: '4-bäddsrum', value: 'quad' },
+  ]},
+  { id: 'f10', type: 'text' as const, label: 'Rumskompis', required: false, placeholder: 'Namn på person du vill dela rum med' },
+  { id: 'f11', type: 'checkbox' as const, label: 'Liftkort', required: false, conditionalFields: [
+    { type: 'select' as const, label: 'Typ av liftkort', required: true, options: [
+      { label: 'Vuxen', value: 'vuxen' },
+      { label: 'Senior', value: 'senior' },
+      { label: 'Junior', value: 'junior' },
+      { label: 'Barn', value: 'barn' },
+    ]},
+    { type: 'select' as const, label: 'Antal dagar', required: true, options: [
+      { label: '6 dagar', value: '6' },
+      { label: '7 dagar', value: '7' },
+      { label: '8 dagar', value: '8' },
+    ]},
+  ]},
+  { id: 'f12', type: 'checkbox' as const, label: 'Skidhyra', required: false, conditionalFields: [
+    { type: 'select' as const, label: 'Typ av utrustning', required: true, options: [
+      { label: 'Slalom', value: 'alpine' },
+      { label: 'Snowboard', value: 'snowboard' },
+    ]},
+    { type: 'select' as const, label: 'Storlek skor', required: true, options: [
+      { label: '36', value: '36' }, { label: '37', value: '37' },
+      { label: '38', value: '38' }, { label: '39', value: '39' },
+      { label: '40', value: '40' }, { label: '41', value: '41' },
+      { label: '42', value: '42' }, { label: '43', value: '43' },
+      { label: '44', value: '44' }, { label: '45', value: '45' },
+      { label: '46', value: '46' },
+    ]},
+  ]},
+  { id: 'f13', type: 'textarea' as const, label: 'Allergier / specialkost', required: false, placeholder: 'Ange eventuella allergier eller kostpreferenser' },
+  { id: 'f14', type: 'text' as const, label: 'Favoritchoklad', required: false, placeholder: 'Vilken är din favoritchoklad?' },
+  { id: 'f15', type: 'checkbox' as const, label: 'Buffé (ditresan)', required: false },
+  { id: 'f16', type: 'textarea' as const, label: 'Övrigt', required: false, placeholder: 'Meddelande till arrangören' },
+];
+
 export const mockTrips: Trip[] = [
   {
     id: '1',
@@ -33,47 +92,10 @@ export const mockTrips: Trip[] = [
     show_spots_left: true,
     image_url: 'https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2023/09/markus-voetter-OzV4gww8L68-unsplash-1-scaled.jpg?media=1766889486',
     status: 'published',
-    form_fields: [
-      { id: 'f1', type: 'text', label: 'Förnamn', required: true, placeholder: 'Ditt förnamn' },
-      { id: 'f2', type: 'text', label: 'Efternamn', required: true, placeholder: 'Ditt efternamn' },
-      { id: 'f3', type: 'email', label: 'E-post', required: true, placeholder: 'din@email.se' },
-      { id: 'f4', type: 'phone', label: 'Telefon', required: true, placeholder: '070-123 45 67' },
-      { id: 'f5', type: 'text', label: 'Personnummer', required: true, placeholder: 'YYYYMMDD-XXXX' },
-      { id: 'f6', type: 'select', label: 'Påstigningsplats', required: true, options: [
-        { label: 'Kalmar', value: 'kalmar' },
-        { label: 'Karlskrona', value: 'karlskrona' },
-        { label: 'Kristianstad', value: 'kristianstad' },
-        { label: 'Lund', value: 'lund' },
-        { label: 'Hyllie (Malmö)', value: 'hyllie' },
-      ]},
-      { id: 'f7', type: 'select', label: 'Hotell', required: true, options: [
-        { label: 'Cavalletto (11 600 kr)', value: 'cavalletto' },
-        { label: 'Val de Costa (11 900 kr)', value: 'val-de-costa' },
-      ]},
-      { id: 'f8', type: 'select', label: 'Rumstyp', required: true, options: [
-        { label: 'Delat dubbelrum', value: 'double' },
-        { label: 'Enkelrum (+245 EUR)', value: 'single' },
-        { label: 'Familjerum (barn upp till 18 år)', value: 'family' },
-      ]},
-      { id: 'f9', type: 'text', label: 'Rumskompis (vid delat dubbelrum)', required: false, placeholder: 'Namn på person du vill dela rum med' },
-      { id: 'f10', type: 'checkbox', label: 'Jag vill ha hjälp med liftkort', required: false },
-      { id: 'f11', type: 'checkbox', label: 'Skidhyra', required: false, conditionalFields: [
-        { type: 'select', label: 'Typ av utrustning', required: true, options: [
-          { label: 'Slalom', value: 'alpine' },
-          { label: 'Snowboard', value: 'snowboard' },
-        ]},
-        { type: 'select', label: 'Storlek skor', required: true, options: [
-          { label: '36', value: '36' }, { label: '37', value: '37' },
-          { label: '38', value: '38' }, { label: '39', value: '39' },
-          { label: '40', value: '40' }, { label: '41', value: '41' },
-          { label: '42', value: '42' }, { label: '43', value: '43' },
-          { label: '44', value: '44' }, { label: '45', value: '45' },
-          { label: '46', value: '46' },
-        ]},
-      ]},
-      { id: 'f12', type: 'textarea', label: 'Allergier / specialkost', required: false, placeholder: 'Ange eventuella allergier eller kostpreferenser' },
-      { id: 'f13', type: 'textarea', label: 'Övriga önskemål', required: false, placeholder: 'Meddelande till arrangören' },
-    ],
+    form_fields: skiFormFields([
+      { label: 'Cavalletto (11 600 kr)', value: 'cavalletto' },
+      { label: 'Val de Costa (11 900 kr)', value: 'val-de-costa' },
+    ]),
     presentation_fields: defaultPresentationFields,
     created_at: '2025-06-01',
     updated_at: '2025-09-15',
@@ -92,44 +114,10 @@ export const mockTrips: Trip[] = [
     show_spots_left: true,
     image_url: 'https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2025/09/pexels-lazarevkirill-8532484-768x512.jpg?media=1766889486',
     status: 'closed',
-    form_fields: [
-      { id: 'f1', type: 'text', label: 'Förnamn', required: true, placeholder: 'Ditt förnamn' },
-      { id: 'f2', type: 'text', label: 'Efternamn', required: true, placeholder: 'Ditt efternamn' },
-      { id: 'f3', type: 'email', label: 'E-post', required: true, placeholder: 'din@email.se' },
-      { id: 'f4', type: 'phone', label: 'Telefon', required: true, placeholder: '070-123 45 67' },
-      { id: 'f5', type: 'text', label: 'Personnummer', required: true, placeholder: 'YYYYMMDD-XXXX' },
-      { id: 'f6', type: 'select', label: 'Påstigningsplats', required: true, options: [
-        { label: 'Kalmar', value: 'kalmar' },
-        { label: 'Karlskrona', value: 'karlskrona' },
-        { label: 'Kristianstad', value: 'kristianstad' },
-        { label: 'Lund', value: 'lund' },
-        { label: 'Hyllie (Malmö)', value: 'hyllie' },
-      ]},
-      { id: 'f7', type: 'select', label: 'Hotell', required: true, options: [
-        { label: 'Cavalletto (12 400 kr)', value: 'cavalletto' },
-        { label: 'Val de Costa (12 900 kr)', value: 'val-de-costa' },
-      ]},
-      { id: 'f8', type: 'select', label: 'Rumstyp', required: true, options: [
-        { label: 'Delat dubbelrum', value: 'double' },
-        { label: 'Enkelrum (+245 EUR)', value: 'single' },
-        { label: 'Familjerum (barn upp till 18 år)', value: 'family' },
-      ]},
-      { id: 'f9', type: 'text', label: 'Rumskompis (vid delat dubbelrum)', required: false, placeholder: 'Namn på person du vill dela rum med' },
-      { id: 'f10', type: 'checkbox', label: 'Jag vill ha hjälp med liftkort', required: false },
-      { id: 'f11', type: 'checkbox', label: 'Skidhyra', required: false, conditionalFields: [
-        { type: 'select', label: 'Typ av utrustning', required: true, options: [
-          { label: 'Slalom', value: 'alpine' },
-          { label: 'Snowboard', value: 'snowboard' },
-        ]},
-        { type: 'select', label: 'Storlek skor', required: true, options: [
-          { label: '36', value: '36' }, { label: '38', value: '38' },
-          { label: '40', value: '40' }, { label: '42', value: '42' },
-          { label: '44', value: '44' }, { label: '46', value: '46' },
-        ]},
-      ]},
-      { id: 'f12', type: 'textarea', label: 'Allergier / specialkost', required: false },
-      { id: 'f13', type: 'textarea', label: 'Övriga önskemål', required: false },
-    ],
+    form_fields: skiFormFields([
+      { label: 'Cavalletto (12 400 kr)', value: 'cavalletto' },
+      { label: 'Val de Costa (12 900 kr)', value: 'val-de-costa' },
+    ]),
     presentation_fields: defaultPresentationFields,
     created_at: '2025-06-01',
     updated_at: '2025-09-15',
@@ -148,44 +136,10 @@ export const mockTrips: Trip[] = [
     show_spots_left: true,
     image_url: 'https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2023/04/joan-oger-Q1DWowDiki0-unsplash-768x512.jpg?media=1766889486',
     status: 'closed',
-    form_fields: [
-      { id: 'f1', type: 'text', label: 'Förnamn', required: true, placeholder: 'Ditt förnamn' },
-      { id: 'f2', type: 'text', label: 'Efternamn', required: true, placeholder: 'Ditt efternamn' },
-      { id: 'f3', type: 'email', label: 'E-post', required: true, placeholder: 'din@email.se' },
-      { id: 'f4', type: 'phone', label: 'Telefon', required: true, placeholder: '070-123 45 67' },
-      { id: 'f5', type: 'text', label: 'Personnummer', required: true, placeholder: 'YYYYMMDD-XXXX' },
-      { id: 'f6', type: 'select', label: 'Påstigningsplats', required: true, options: [
-        { label: 'Kalmar', value: 'kalmar' },
-        { label: 'Karlskrona', value: 'karlskrona' },
-        { label: 'Kristianstad', value: 'kristianstad' },
-        { label: 'Lund', value: 'lund' },
-        { label: 'Hyllie (Malmö)', value: 'hyllie' },
-      ]},
-      { id: 'f7', type: 'select', label: 'Hotell', required: true, options: [
-        { label: 'Cavalletto (12 500 kr)', value: 'cavalletto' },
-        { label: 'Val de Costa (12 900 kr)', value: 'val-de-costa' },
-      ]},
-      { id: 'f8', type: 'select', label: 'Rumstyp', required: true, options: [
-        { label: 'Delat dubbelrum', value: 'double' },
-        { label: 'Enkelrum (+245 EUR)', value: 'single' },
-        { label: 'Familjerum (barn upp till 18 år)', value: 'family' },
-      ]},
-      { id: 'f9', type: 'text', label: 'Rumskompis (vid delat dubbelrum)', required: false, placeholder: 'Namn' },
-      { id: 'f10', type: 'checkbox', label: 'Jag vill ha hjälp med liftkort', required: false },
-      { id: 'f11', type: 'checkbox', label: 'Skidhyra', required: false, conditionalFields: [
-        { type: 'select', label: 'Typ av utrustning', required: true, options: [
-          { label: 'Slalom', value: 'alpine' },
-          { label: 'Snowboard', value: 'snowboard' },
-        ]},
-        { type: 'select', label: 'Storlek skor', required: true, options: [
-          { label: '36', value: '36' }, { label: '38', value: '38' },
-          { label: '40', value: '40' }, { label: '42', value: '42' },
-          { label: '44', value: '44' }, { label: '46', value: '46' },
-        ]},
-      ]},
-      { id: 'f12', type: 'textarea', label: 'Allergier / specialkost', required: false },
-      { id: 'f13', type: 'textarea', label: 'Övriga önskemål', required: false },
-    ],
+    form_fields: skiFormFields([
+      { label: 'Cavalletto (12 500 kr)', value: 'cavalletto' },
+      { label: 'Val de Costa (12 900 kr)', value: 'val-de-costa' },
+    ]),
     presentation_fields: defaultPresentationFields,
     created_at: '2025-06-01',
     updated_at: '2025-09-15',
@@ -207,29 +161,35 @@ export const mockTrips: Trip[] = [
     form_fields: [
       { id: 'f1', type: 'text', label: 'Förnamn', required: true, placeholder: 'Ditt förnamn' },
       { id: 'f2', type: 'text', label: 'Efternamn', required: true, placeholder: 'Ditt efternamn' },
-      { id: 'f3', type: 'email', label: 'E-post', required: true, placeholder: 'din@email.se' },
+      { id: 'f3', type: 'text', label: 'Personnummer', required: true, placeholder: 'YYYYMMDD-XXXX' },
       { id: 'f4', type: 'phone', label: 'Telefon', required: true, placeholder: '070-123 45 67' },
-      { id: 'f5', type: 'text', label: 'Personnummer', required: true, placeholder: 'YYYYMMDD-XXXX' },
-      { id: 'f6', type: 'select', label: 'Påstigningsplats', required: true, options: [
+      { id: 'f5', type: 'email', label: 'E-post', required: true, placeholder: 'din@email.se' },
+      { id: 'f6', type: 'select', label: 'Kontaktväg', required: true, options: [
+        { label: 'Facebook-grupp', value: 'facebook' },
+        { label: 'SMS', value: 'sms' },
+        { label: 'Mail', value: 'mail' },
+      ]},
+      { id: 'f7', type: 'select', label: 'Påstigningsplats', required: true, options: [
         { label: 'Karlshamn', value: 'karlshamn' },
         { label: 'Kristianstad', value: 'kristianstad' },
         { label: 'Lund', value: 'lund' },
         { label: 'Hyllie (Malmö)', value: 'hyllie' },
       ]},
-      { id: 'f7', type: 'select', label: 'Rumstyp', required: true, options: [
-        { label: 'Delat dubbelrum', value: 'double' },
+      { id: 'f8', type: 'select', label: 'Rumstyp', required: true, options: [
+        { label: 'Dubbelrum', value: 'double' },
         { label: 'Enkelrum (+1 900 kr)', value: 'single' },
       ]},
-      { id: 'f8', type: 'text', label: 'Rumskompis (vid delat dubbelrum)', required: false, placeholder: 'Namn på person du vill dela rum med' },
-      { id: 'f9', type: 'checkbox', label: 'Jag vill ha biljetter till Freimarkt-tältet (ca 40 EUR/kväll)', required: false, conditionalFields: [
+      { id: 'f9', type: 'text', label: 'Rumskompis', required: false, placeholder: 'Namn på person du vill dela rum med' },
+      { id: 'f10', type: 'checkbox', label: 'Biljetter till Freimarkt-tältet (ca 40 EUR/kväll)', required: false, conditionalFields: [
         { type: 'select', label: 'Antal kvällar i tältet', required: true, options: [
           { label: '1 kväll', value: '1' },
           { label: '2 kvällar', value: '2' },
           { label: '3 kvällar', value: '3' },
         ]},
       ]},
-      { id: 'f10', type: 'textarea', label: 'Allergier / specialkost', required: false, placeholder: 'Ange eventuella allergier eller kostpreferenser' },
-      { id: 'f11', type: 'textarea', label: 'Övriga önskemål', required: false, placeholder: 'Meddelande till arrangören' },
+      { id: 'f11', type: 'textarea', label: 'Allergier / specialkost', required: false, placeholder: 'Ange eventuella allergier eller kostpreferenser' },
+      { id: 'f12', type: 'text', label: 'Favoritchoklad', required: false, placeholder: 'Vilken är din favoritchoklad?' },
+      { id: 'f13', type: 'textarea', label: 'Övrigt', required: false, placeholder: 'Meddelande till arrangören' },
     ],
     presentation_fields: defaultPresentationFields,
     created_at: '2025-09-01',

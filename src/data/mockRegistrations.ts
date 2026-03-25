@@ -16,8 +16,12 @@ const names = [
 const boardingPlaces = ['kalmar', 'karlskrona', 'kristianstad', 'lund', 'hyllie'];
 const bremenBoarding = ['karlshamn', 'kristianstad', 'lund', 'hyllie'];
 const hotels = ['cavalletto', 'val-de-costa'];
-const roomTypes = ['double', 'single', 'family'];
+const roomTypes = ['single', 'double', 'triple', 'quad'];
 const bremenRooms = ['double', 'single'];
+const contactMethods = ['facebook', 'sms', 'mail'];
+const liftTypes = ['vuxen', 'senior', 'junior', 'barn'];
+const liftDays = ['6', '7', '8'];
+const chocolates = ['Marabou Mjölkchoklad', 'Daim', 'Kexchoklad', 'Plopp', 'Toblerone', 'Lindt havsalt', 'After Eight', 'Snickers', 'Polly', 'Aladdin-asken'];
 const equipmentTypes = ['alpine', 'snowboard'];
 const shoeRange = ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'];
 const allergies = ['', '', '', '', 'Glutenfri', 'Laktosfri', 'Nötallergi', 'Vegetarian', 'Vegan', ''];
@@ -82,29 +86,36 @@ function generateSkiReg(id: string, tripId: string, nameIdx: number, dateOffset:
   const formData: Record<string, any> = {
     'Förnamn': first,
     'Efternamn': last,
-    'E-post': `${first.toLowerCase()}.${last.toLowerCase()}@mail.se`,
-    'Telefon': `07${nameIdx % 10}-${String(100 + nameIdx * 7 % 900)} ${String(10 + nameIdx * 3 % 90)} ${String(10 + nameIdx * 11 % 90)}`,
     'Personnummer': pnr(nameIdx),
+    'Telefon': `07${nameIdx % 10}-${String(100 + nameIdx * 7 % 900)} ${String(10 + nameIdx * 3 % 90)} ${String(10 + nameIdx * 11 % 90)}`,
+    'E-post': `${first.toLowerCase()}.${last.toLowerCase()}@mail.se`,
+    'Kontaktväg': pick(contactMethods),
     'Påstigningsplats': boarding,
     'Hotell': hotel,
     'Rumstyp': room,
   };
 
-  if (room === 'double') {
+  if (room === 'double' || room === 'triple' || room === 'quad') {
     const buddy = names[(nameIdx + 1) % names.length];
-    formData['Rumskompis (vid delat dubbelrum)'] = `${buddy[0]} ${buddy[1]}`;
+    formData['Rumskompis'] = `${buddy[0]} ${buddy[1]}`;
   }
 
-  formData['Jag vill ha hjälp med liftkort'] = wantsLiftPass;
-  formData['Skidhyra'] = wantsRental;
+  formData['Liftkort'] = wantsLiftPass;
+  if (wantsLiftPass) {
+    formData['Typ av liftkort'] = pick(liftTypes);
+    formData['Antal dagar'] = pick(liftDays);
+  }
 
+  formData['Skidhyra'] = wantsRental;
   if (wantsRental) {
     formData['Typ av utrustning'] = pick(equipmentTypes);
     formData['Storlek skor'] = pick(shoeRange);
   }
 
   if (allergy) formData['Allergier / specialkost'] = allergy;
-  if (Math.random() > 0.7) formData['Övriga önskemål'] = pick(['Vill sitta längst bak på bussen', 'Firar födelsedag under resan!', 'Kan vi få rum nära varandra?', 'Tar med egen utrustning för offpist']);
+  formData['Favoritchoklad'] = pick(chocolates);
+  formData['Buffé (ditresan)'] = Math.random() > 0.4;
+  if (Math.random() > 0.7) formData['Övrigt'] = pick(['Vill sitta längst bak på bussen', 'Firar födelsedag under resan!', 'Kan vi få rum nära varandra?', 'Tar med egen utrustning för offpist']);
 
   const created = `2025-${String(7 + Math.floor(dateOffset / 30)).padStart(2, '0')}-${String(1 + dateOffset % 28).padStart(2, '0')}`;
   return {
@@ -124,25 +135,27 @@ function generateBremenReg(id: string, nameIdx: number, dateOffset: number): Reg
   const formData: Record<string, any> = {
     'Förnamn': first,
     'Efternamn': last,
-    'E-post': `${first.toLowerCase()}.${last.toLowerCase()}@mail.se`,
-    'Telefon': `07${nameIdx % 10}-${String(100 + nameIdx * 7 % 900)} ${String(10 + nameIdx * 3 % 90)} ${String(10 + nameIdx * 11 % 90)}`,
     'Personnummer': pnr(nameIdx),
+    'Telefon': `07${nameIdx % 10}-${String(100 + nameIdx * 7 % 900)} ${String(10 + nameIdx * 3 % 90)} ${String(10 + nameIdx * 11 % 90)}`,
+    'E-post': `${first.toLowerCase()}.${last.toLowerCase()}@mail.se`,
+    'Kontaktväg': pick(contactMethods),
     'Påstigningsplats': pick(bremenBoarding),
     'Rumstyp': room,
   };
 
   if (room === 'double') {
     const buddy = names[(nameIdx + 3) % names.length];
-    formData['Rumskompis (vid delat dubbelrum)'] = `${buddy[0]} ${buddy[1]}`;
+    formData['Rumskompis'] = `${buddy[0]} ${buddy[1]}`;
   }
 
-  formData['Jag vill ha biljetter till Freimarkt-tältet (ca 40 EUR/kväll)'] = wantsTent;
+  formData['Biljetter till Freimarkt-tältet (ca 40 EUR/kväll)'] = wantsTent;
   if (wantsTent) {
     formData['Antal kvällar i tältet'] = pick(['1', '2', '3']);
   }
 
   if (allergy) formData['Allergier / specialkost'] = allergy;
-  if (Math.random() > 0.7) formData['Övriga önskemål'] = pick(['Vill ha bord nära scenen', 'Kommer med en grupp på 6 personer', 'Behöver extra kudde']);
+  formData['Favoritchoklad'] = pick(chocolates);
+  if (Math.random() > 0.7) formData['Övrigt'] = pick(['Vill ha bord nära scenen', 'Kommer med en grupp på 6 personer', 'Behöver extra kudde']);
 
   const created = `2025-09-${String(1 + dateOffset % 28).padStart(2, '0')}`;
   return {
