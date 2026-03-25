@@ -1,10 +1,16 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 
 const Header = () => {
-  const { user, signOut } = useAuth();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -16,11 +22,9 @@ const Header = () => {
             className="h-10 w-auto"
           />
         </Link>
-        {user && (
-          <Button variant="ghost" size="sm" className="gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground" onClick={signOut}>
-            <LogOut className="h-4 w-4" /> Logga ut
-          </Button>
-        )}
+        <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2 text-sidebar-foreground/60 hover:text-sidebar-foreground">
+          <LogOut className="h-4 w-4" /> Logga ut
+        </Button>
       </div>
     </header>
   );
