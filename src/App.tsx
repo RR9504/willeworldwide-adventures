@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { isBookingDomain, isAdminDomain } from "@/lib/domain";
 import TripRegistrationPage from "./pages/TripRegistrationPage";
 import Dashboard from "./pages/Dashboard";
 import TripDetailsPage from "./pages/TripDetailsPage";
@@ -23,28 +24,57 @@ const ProtectedRoute = () => {
   return <Outlet />;
 };
 
+const BookingApp = () => (
+  <Routes>
+    <Route path="/resa/:id" element={<TripRegistrationPage />} />
+    <Route path="/resa/:id/presentation/:regId" element={<PresentationFormPage />} />
+    <Route path="*" element={<Navigate to="/resa/not-found" replace />} />
+  </Routes>
+);
+
+const AdminApp = () => (
+  <Routes>
+    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <Route path="/login" element={<LoginPage />} />
+    <Route element={<ProtectedRoute />}>
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/dashboard/alerts/:type" element={<AlertListPage />} />
+      <Route path="/dashboard/resor/ny" element={<CreateTripPage />} />
+      <Route path="/dashboard/resor/:id/redigera" element={<CreateTripPage />} />
+      <Route path="/dashboard/resor/:id/deltagare/:regId" element={<ParticipantDetailPage />} />
+      <Route path="/dashboard/resor/:id/presentation" element={<TripPresentationPage />} />
+      <Route path="/dashboard/resor/:id" element={<TripDetailsPage />} />
+    </Route>
+    <Route path="*" element={<NotFound />} />
+  </Routes>
+);
+
+const FullApp = () => (
+  <Routes>
+    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/resa/:id" element={<TripRegistrationPage />} />
+    <Route path="/resa/:id/presentation/:regId" element={<PresentationFormPage />} />
+    <Route element={<ProtectedRoute />}>
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/dashboard/alerts/:type" element={<AlertListPage />} />
+      <Route path="/dashboard/resor/ny" element={<CreateTripPage />} />
+      <Route path="/dashboard/resor/:id/redigera" element={<CreateTripPage />} />
+      <Route path="/dashboard/resor/:id/deltagare/:regId" element={<ParticipantDetailPage />} />
+      <Route path="/dashboard/resor/:id/presentation" element={<TripPresentationPage />} />
+      <Route path="/dashboard/resor/:id" element={<TripDetailsPage />} />
+    </Route>
+    <Route path="*" element={<NotFound />} />
+  </Routes>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/resa/:id" element={<TripRegistrationPage />} />
-          <Route path="/resa/:id/presentation/:regId" element={<PresentationFormPage />} />
-          <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/dashboard/alerts/:type" element={<AlertListPage />} />
-            <Route path="/dashboard/resor/ny" element={<CreateTripPage />} />
-            <Route path="/dashboard/resor/:id/redigera" element={<CreateTripPage />} />
-            <Route path="/dashboard/resor/:id/deltagare/:regId" element={<ParticipantDetailPage />} />
-            <Route path="/dashboard/resor/:id/presentation" element={<TripPresentationPage />} />
-            <Route path="/dashboard/resor/:id" element={<TripDetailsPage />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        {isBookingDomain ? <BookingApp /> : isAdminDomain ? <AdminApp /> : <FullApp />}
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
