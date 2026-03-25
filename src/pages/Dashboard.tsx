@@ -1,11 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, CreditCard, FileText, AlertTriangle } from 'lucide-react';
+import { Plus, CreditCard, FileText, AlertTriangle, Loader2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Header from '@/components/layout/Header';
-import { mockTrips, mockRegistrations } from '@/data/mockTrips';
+import { useTrips, useAllRegistrations } from '@/hooks/useTrips';
 
 const statusLabels: Record<string, string> = {
   draft: 'Utkast', published: 'Publicerad', closed: 'Stängd',
@@ -16,21 +16,34 @@ const statusVariants: Record<string, 'default' | 'secondary' | 'outline'> = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { data: trips = [], isLoading: tripsLoading } = useTrips();
+  const { data: registrations = [], isLoading: regsLoading } = useAllRegistrations();
+
+  const loading = tripsLoading || regsLoading;
 
   const alerts = useMemo(() => {
-    const unpaidRegs = mockRegistrations.filter(r => r.payment_status === 'unpaid');
-    const missingPresentation = mockRegistrations.filter(r => !r.presentation_data || Object.keys(r.presentation_data).length === 0);
-
-    const lowSpotsTrips = mockTrips
+    const unpaidRegs = registrations.filter(r => r.payment_status === 'unpaid');
+    const missingPresentation = registrations.filter(r => !r.presentation_data || Object.keys(r.presentation_data).length === 0);
+    const lowSpotsTrips = trips
       .filter(t => t.status === 'published')
       .filter(t => {
-        const regCount = mockRegistrations.filter(r => r.trip_id === t.id).length;
+        const regCount = registrations.filter(r => r.trip_id === t.id).length;
         const spotsLeft = t.max_participants - regCount;
         return spotsLeft > 0 && spotsLeft <= 10;
       });
-
     return { unpaidRegs, missingPresentation, lowSpotsTrips };
-  }, []);
+  }, [trips, registrations]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen flex-col bg-muted/30">
+        <Header />
+        <div className="flex flex-1 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
@@ -48,7 +61,6 @@ const Dashboard = () => {
 
         {/* Actionable alerts */}
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Unpaid */}
           <Card
             className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.unpaidRegs.length > 0 ? 'border-destructive/30' : ''}`}
             onClick={() => navigate('/dashboard/alerts/unpaid')}
@@ -64,7 +76,6 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Missing presentation */}
           <Card
             className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.missingPresentation.length > 0 ? 'border-yellow-400/30' : ''}`}
             onClick={() => navigate('/dashboard/alerts/missing-presentation')}
@@ -80,7 +91,6 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Low spots */}
           <Card
             className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.lowSpotsTrips.length > 0 ? 'border-orange-400/30' : ''}`}
             onClick={() => navigate('/dashboard/alerts/low-spots')}
@@ -104,8 +114,11 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockTrips.map(trip => {
-                const regs = mockRegistrations.filter(r => r.trip_id === trip.id);
+              {trips.length === 0 && (
+                <div className="py-12 text-center text-muted-foreground">Inga resor ännu. Skapa din första resa!</div>
+              )}
+              {trips.map(trip => {
+                const regs = registrations.filter(r => r.trip_id === trip.id);
                 const regCount = regs.length;
                 const unpaidCount = regs.filter(r => r.payment_status === 'unpaid').length;
                 const missingPres = regs.filter(r => !r.presentation_data || Object.keys(r.presentation_data).length === 0).length;
@@ -116,7 +129,7 @@ const Dashboard = () => {
                     className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
                   >
                     <div className="flex items-center gap-4">
-                      <img src={trip.image_url} alt={trip.title} className="h-12 w-12 rounded-md object-cover" />
+                      {trip.image_url && <img src={trip.image_url} alt={trip.title} className="h-12 w-12 rounded-md object-cover" />}
                       <div>
                         <p className="font-heading font-semibold">{trip.title}</p>
                         <p className="text-sm text-muted-foreground">{trip.destination} · {new Date(trip.start_date).toLocaleDateString('sv-SE')}</p>

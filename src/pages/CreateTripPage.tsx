@@ -14,7 +14,7 @@ import Header from '@/components/layout/Header';
 import FormFieldList from '@/components/admin/FormFieldList';
 import FormPreview from '@/components/admin/FormPreview';
 import { Trip, TripCategory, TripStatus, FormField, FormFieldType, PresentationQuestion } from '@/types/trip';
-import { mockTrips } from '@/data/mockTrips';
+import { useTrip, useSaveTrip } from '@/hooks/useTrips';
 import { formTemplates } from '@/data/formTemplates';
 import { toast } from 'sonner';
 
@@ -56,7 +56,8 @@ const CreateTripPage = () => {
   const navigate = useNavigate();
   const isEditing = !!id;
 
-  const existingTrip = isEditing ? mockTrips.find(t => t.id === id) : null;
+  const { data: existingTrip } = useTrip(isEditing ? id : undefined);
+  const saveTrip = useSaveTrip();
 
   const [title, setTitle] = useState(existingTrip?.title || '');
   const [description, setDescription] = useState(existingTrip?.description || '');
@@ -107,35 +108,32 @@ const CreateTripPage = () => {
 
     setSaving(true);
 
-    const trip: Trip = {
-      id: existingTrip?.id || String(Date.now()),
-      title: title.trim(),
-      description: description.trim(),
-      destination: destination.trim(),
-      category,
-      start_date: startDate,
-      end_date: endDate,
-      price: Number(price) || 0,
-      currency: 'SEK',
-      max_participants: Number(maxParticipants) || 50,
-      show_spots_left: showSpotsLeft,
-      spots_left_threshold: spotsLeftThreshold ? Number(spotsLeftThreshold) : undefined,
-      image_url: imageUrl.trim(),
-      status,
-      form_fields: formFields,
-      presentation_fields: presentationFields,
-      created_at: existingTrip?.created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    // TODO: Save to Supabase
-    console.log('Saving trip:', trip);
-
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      await saveTrip.mutateAsync({
+        ...(existingTrip?.id ? { id: existingTrip.id } : {}),
+        title: title.trim(),
+        description: description.trim(),
+        destination: destination.trim(),
+        category,
+        start_date: startDate,
+        end_date: endDate,
+        price: Number(price) || 0,
+        currency: 'SEK',
+        max_participants: Number(maxParticipants) || 50,
+        show_spots_left: showSpotsLeft,
+        spots_left_threshold: spotsLeftThreshold ? Number(spotsLeftThreshold) : undefined,
+        image_url: imageUrl.trim(),
+        status,
+        form_fields: formFields,
+        presentation_fields: presentationFields,
+      } as any);
       toast.success(isEditing ? 'Resan uppdaterad!' : 'Resan skapad!');
       navigate('/dashboard');
-    }, 500);
+    } catch (err: any) {
+      toast.error(err?.message || 'Kunde inte spara resan');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
