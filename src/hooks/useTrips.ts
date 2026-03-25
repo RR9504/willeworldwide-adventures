@@ -2,6 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sql } from '@/lib/db';
 import { Trip, TripCategory, TripStatus, FormField, PresentationQuestion } from '@/types/trip';
 
+// Re-export registration hooks so pages can import everything from useTrips
+export { useRegistrations, useAllRegistrations, useRegistration, useCreateRegistration, useUpdateRegistration } from './useRegistrations';
+
 function mapTrip(row: any): Trip {
   return {
     id: row.id,
@@ -95,6 +98,51 @@ export function useUpdateTrip() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['trips'] });
       queryClient.invalidateQueries({ queryKey: ['trips', data.id] });
+    },
+  });
+}
+
+// Combined save (create or update) for compatibility with CreateTripPage
+export function useSaveTrip() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (trip: Partial<Trip> & { id?: string }) => {
+      const { id, ...rest } = trip;
+      if (id) {
+        const rows = await sql`
+          UPDATE trips SET
+            title = COALESCE(${rest.title ?? null}, title),
+            description = COALESCE(${rest.description ?? null}, description),
+            destination = COALESCE(${rest.destination ?? null}, destination),
+            category = COALESCE(${rest.category ?? null}, category),
+            start_date = COALESCE(${rest.start_date ?? null}, start_date),
+            end_date = COALESCE(${rest.end_date ?? null}, end_date),
+            price = COALESCE(${rest.price ?? null}, price),
+            currency = COALESCE(${rest.currency ?? null}, currency),
+            max_participants = COALESCE(${rest.max_participants ?? null}, max_participants),
+            show_spots_left = COALESCE(${rest.show_spots_left ?? null}, show_spots_left),
+            spots_left_threshold = ${rest.spots_left_threshold ?? null},
+            image_url = COALESCE(${rest.image_url ?? null}, image_url),
+            image_position = ${rest.image_position ?? null},
+            status = COALESCE(${rest.status ?? null}, status),
+            form_fields = COALESCE(${rest.form_fields ? JSON.stringify(rest.form_fields) : null}, form_fields),
+            presentation_fields = COALESCE(${rest.presentation_fields ? JSON.stringify(rest.presentation_fields) : null}, presentation_fields)
+          WHERE id = ${id}
+          RETURNING *
+        `;
+        return mapTrip(rows[0]);
+      } else {
+        const t = rest as Omit<Trip, 'id' | 'created_at' | 'updated_at'>;
+        const rows = await sql`
+          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields)
+          VALUES (${t.title}, ${t.description}, ${t.destination}, ${t.category}, ${t.start_date}, ${t.end_date}, ${t.price}, ${t.currency}, ${t.max_participants}, ${t.show_spots_left}, ${t.spots_left_threshold ?? null}, ${t.image_url}, ${t.image_position ?? null}, ${t.status}, ${JSON.stringify(t.form_fields)}, ${JSON.stringify(t.presentation_fields)})
+          RETURNING *
+        `;
+        return mapTrip(rows[0]);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trips'] });
     },
   });
 }
