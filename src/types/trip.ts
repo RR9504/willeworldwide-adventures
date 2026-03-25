@@ -24,7 +24,6 @@ export interface FormField {
   required: boolean;
   options?: FormFieldOption[];
   conditionalFields?: ConditionalField[];
-  countsAsParticipant?: boolean;
 }
 
 export interface PresentationQuestion {

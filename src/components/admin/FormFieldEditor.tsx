@@ -273,11 +273,6 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
               </div>
             )}
 
-            {/* Counts as participant */}
-            <div className="flex items-center gap-3">
-              <Switch checked={field.countsAsParticipant || false} onCheckedChange={v => update({ countsAsParticipant: v })} />
-              <Label className="text-sm">Räknas som extra deltagare</Label>
-            </div>
           </div>
         )}
       </CardContent>
