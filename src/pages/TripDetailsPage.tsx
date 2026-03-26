@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2 } from 'lucide-react';
+import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2, Send } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Header from '@/components/layout/Header';
 import { useTrip, useRegistrations } from '@/hooks/useTrips';
+import SendMessageDialog from '@/components/admin/SendMessageDialog';
 import { PaymentStatus } from '@/types/trip';
 import { toast } from 'sonner';
 
@@ -187,7 +188,17 @@ const TripDetailsPage = () => {
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <CardTitle className="text-lg">Deltagare ({filteredRegs.length})</CardTitle>
+              <div className="flex items-center gap-3">
+                <CardTitle className="text-lg">Deltagare ({filteredRegs.length})</CardTitle>
+                {filteredRegs.length > 0 && (
+                  <SendMessageDialog
+                    recipients={filteredRegs}
+                    filterLabel={filterField && filterField !== '__none' ? filterField : undefined}
+                    filterValue={filterValue || undefined}
+                    tripTitle={trip.title}
+                  />
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <Select value={filterField} onValueChange={v => { setFilterField(v); setFilterValue(''); }}>
