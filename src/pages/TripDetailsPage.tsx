@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Header from '@/components/layout/Header';
-import { useTrip, useRegistrations } from '@/hooks/useTrips';
+import { useTrip, useRegistrations, useUpdateRegistration } from '@/hooks/useTrips';
 import SendMessageDialog from '@/components/admin/SendMessageDialog';
 import { PaymentStatus } from '@/types/trip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 
 const paymentLabels: Record<PaymentStatus, string> = {
@@ -27,6 +28,7 @@ const TripDetailsPage = () => {
   const navigate = useNavigate();
   const { data: trip, isLoading: tripLoading } = useTrip(id);
   const { data: registrations = [], isLoading: regsLoading } = useRegistrations(id);
+  const updateRegistration = useUpdateRegistration();
 
   const [filterField, setFilterField] = useState<string>('');
   const [filterValue, setFilterValue] = useState<string>('');
@@ -235,7 +237,33 @@ const TripDetailsPage = () => {
                       {allFilterLabels.map(col => (
                         <TableCell key={col} className="max-w-[180px] truncate">
                           {col === 'Betalningsstatus' ? (
-                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${paymentColors[r.payment_status]}`}>{paymentLabels[r.payment_status]}</span>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button
+                                  onClick={e => e.stopPropagation()}
+                                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all ${paymentColors[r.payment_status]}`}
+                                >
+                                  {paymentLabels[r.payment_status]}
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-40 p-1" onClick={e => e.stopPropagation()}>
+                                {(Object.keys(paymentLabels) as PaymentStatus[]).map(status => (
+                                  <button
+                                    key={status}
+                                    onClick={() => {
+                                      updateRegistration.mutate(
+                                        { id: r.id, payment_status: status },
+                                        { onSuccess: () => toast.success(`${paymentLabels[status]} — ${r.form_data['Förnamn']} ${r.form_data['Efternamn']}`) }
+                                      );
+                                    }}
+                                    className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors hover:bg-accent ${r.payment_status === status ? 'bg-accent font-medium' : ''}`}
+                                  >
+                                    <span className={`inline-block h-2 w-2 rounded-full ${paymentColors[status].split(' ')[0].replace('/10', '')}`} />
+                                    {paymentLabels[status]}
+                                  </button>
+                                ))}
+                              </PopoverContent>
+                            </Popover>
                           ) : col === 'Anmälningsdatum' ? (
                             <span className="text-sm text-muted-foreground">{getColumnValue(r, col)}</span>
                           ) : (getColumnValue(r, col) || '–')}

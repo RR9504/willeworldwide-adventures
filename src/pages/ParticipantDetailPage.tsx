@@ -2,8 +2,10 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/layout/Header';
-import { useTrip, useRegistrations } from '@/hooks/useTrips';
+import { useTrip, useRegistrations, useUpdateRegistration } from '@/hooks/useTrips';
+import { Button } from '@/components/ui/button';
 import { PaymentStatus } from '@/types/trip';
+import { toast } from 'sonner';
 
 const paymentLabels: Record<PaymentStatus, string> = {
   unpaid: 'Ej betald', paid: 'Betald', partial: 'Delbetalad', refunded: 'Återbetald',
@@ -20,6 +22,7 @@ const ParticipantDetailPage = () => {
   const { data: trip, isLoading: tripLoading } = useTrip(id);
   const { data: registrations = [], isLoading: regsLoading } = useRegistrations(id);
   const reg = registrations.find(r => r.id === regId);
+  const updateRegistration = useUpdateRegistration();
 
   if (tripLoading || regsLoading) {
     return (<div className="flex min-h-screen flex-col"><Header /><div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></div>);
@@ -81,9 +84,26 @@ const ParticipantDetailPage = () => {
             <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CreditCard className="h-5 w-5 text-primary" /> Betalning</CardTitle></CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Status</span>
-                  <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${paymentColors[reg.payment_status]}`}>{paymentLabels[reg.payment_status]}</span>
+                <div>
+                  <span className="text-sm text-muted-foreground mb-2 block">Status</span>
+                  <div className="flex flex-wrap gap-2">
+                    {(Object.keys(paymentLabels) as PaymentStatus[]).map(status => (
+                      <Button
+                        key={status}
+                        size="sm"
+                        variant={reg.payment_status === status ? 'default' : 'outline'}
+                        className={reg.payment_status === status ? paymentColors[status].replace('bg-', 'bg-').split(' ').join(' ') : ''}
+                        onClick={() => {
+                          updateRegistration.mutate(
+                            { id: reg.id, payment_status: status },
+                            { onSuccess: () => toast.success(`Betalningsstatus ändrad till "${paymentLabels[status]}"`) }
+                          );
+                        }}
+                      >
+                        {paymentLabels[status]}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Pris</span>
