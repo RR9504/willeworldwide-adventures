@@ -58,7 +58,7 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting }: DynamicFormProps) => {
             <CreditCard className="h-5 w-5" /> Betala din resa
           </Button>
         </a>
-        <p className="text-xs text-muted-foreground">Anmälningsavgift: 2 000 kr per person</p>
+        <p className="text-xs text-muted-foreground">En reservationsavgift på 2 000 kr per person betalas vid bokning. Resterande belopp faktureras ca 3 veckor före avresa.</p>
       </div>
     );
   }
