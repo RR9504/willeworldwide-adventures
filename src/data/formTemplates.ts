@@ -30,7 +30,6 @@ export const formTemplates: FormTemplate[] = [
         { label: 'Lund', value: 'lund' },
         { label: 'Hyllie (Malmö)', value: 'hyllie' },
       ]},
-      { id: 'tf-7b', type: 'text', label: 'Annan påstigningsplats', required: false, placeholder: 'Om din ort inte finns i listan ovan' },
       { id: 'tf-8', type: 'select', label: 'Hotell', required: true, showInSummary: true, options: [
         { label: 'Hotell 1', value: 'hotell-1' },
         { label: 'Hotell 2', value: 'hotell-2' },
@@ -84,7 +83,6 @@ export const formTemplates: FormTemplate[] = [
         { label: 'Lund', value: 'lund' },
         { label: 'Hyllie (Malmö)', value: 'hyllie' },
       ]},
-      { id: 'tf-7b', type: 'text', label: 'Annan påstigningsplats', required: false, placeholder: 'Om din ort inte finns i listan ovan' },
       { id: 'tf-8', type: 'select', label: 'Rumstyp', required: true, showInSummary: true, options: [
         { label: 'Enkelrum', value: 'single' },
         { label: 'Dubbelrum', value: 'double' },
@@ -117,7 +115,6 @@ export const formTemplates: FormTemplate[] = [
         { label: 'Lund', value: 'lund' },
         { label: 'Hyllie (Malmö)', value: 'hyllie' },
       ]},
-      { id: 'tf-8', type: 'text', label: 'Annan påstigningsplats', required: false, placeholder: 'Om din ort inte finns i listan ovan' },
       { id: 'tf-9', type: 'select', label: 'Shoppingdestination', required: true, showInSummary: true, options: [
         { label: 'Calles', value: 'calles' },
         { label: 'Bordershop', value: 'bordershop' },
