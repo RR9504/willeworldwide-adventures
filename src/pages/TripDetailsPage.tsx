@@ -65,6 +65,53 @@ const TripDetailsPage = () => {
     const counts: Record<string, Record<string, number>> = {};
     const lists: Record<string, string[]> = {};
 
+    // Normalize text for fuzzy grouping: lowercase, trim, remove common suffixes
+    const normalize = (s: string) => s
+      .toLowerCase()
+      .trim()
+      .replace(/chokladen?$/i, 'choklad')
+      .replace(/\s+/g, ' ')
+      .replace(/[.,!?]+$/, '');
+
+    // Check if two normalized strings are similar enough to group
+    const isSimilar = (a: string, b: string) => {
+      if (a === b) return true;
+      // One contains the other
+      if (a.includes(b) || b.includes(a)) return true;
+      // Levenshtein-ish: allow 1-2 char difference for short strings
+      if (Math.abs(a.length - b.length) <= 2) {
+        let diff = 0;
+        const longer = a.length >= b.length ? a : b;
+        const shorter = a.length < b.length ? a : b;
+        for (let i = 0; i < shorter.length; i++) {
+          if (shorter[i] !== longer[i]) diff++;
+        }
+        diff += longer.length - shorter.length;
+        return diff <= 2;
+      }
+      return false;
+    };
+
+    // Group similar text values and count them
+    const groupValues = (values: string[]): Record<string, number> => {
+      const groups: { canonical: string; count: number }[] = [];
+      values.forEach(val => {
+        const norm = normalize(val);
+        const existing = groups.find(g => isSimilar(normalize(g.canonical), norm));
+        if (existing) {
+          existing.count++;
+          // Keep the longer/more complete version as canonical
+          if (val.length > existing.canonical.length) existing.canonical = val;
+        } else {
+          groups.push({ canonical: val, count: 1 });
+        }
+      });
+      const result: Record<string, number> = {};
+      groups.sort((a, b) => b.count - a.count);
+      groups.forEach(g => { result[g.canonical] = g.count; });
+      return result;
+    };
+
     trip.form_fields.filter(f => f.showInSummary).forEach(field => {
       if (field.type === 'select' || field.type === 'checkbox') {
         counts[field.label] = {};
@@ -73,12 +120,15 @@ const TripDetailsPage = () => {
           if (val) counts[field.label][val] = (counts[field.label][val] || 0) + 1;
         });
       } else {
+        // Text fields: collect values and smart-group them
         const values: string[] = [];
         registrations.forEach(r => {
           const val = getColumnValue(r, field.label);
           if (val) values.push(val);
         });
-        if (values.length > 0) lists[field.label] = values;
+        if (values.length > 0) {
+          counts[field.label] = groupValues(values);
+        }
       }
     });
 
@@ -153,7 +203,7 @@ const TripDetailsPage = () => {
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold font-heading text-destructive">{registrations.filter(r => r.payment_status === 'unpaid').length}</p><p className="text-sm text-muted-foreground">Ej betalda</p></CardContent></Card>
         </div>
 
-        {(Object.keys(summary.counts).length > 0 || Object.keys(summary.lists).length > 0) && (
+        {Object.keys(summary.counts).length > 0 && (
           <Card className="mb-6">
             <CardHeader><CardTitle className="text-lg">Sammanställning</CardTitle></CardHeader>
             <CardContent>
@@ -161,7 +211,7 @@ const TripDetailsPage = () => {
                 {Object.entries(summary.counts).map(([field, values]) => (
                   <div key={field}>
                     <p className="mb-2 font-heading text-sm font-semibold">{field}</p>
-                    <div className="space-y-1">
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
                       {Object.entries(values).map(([val, count]) => {
                         const isActive = filterField === field && filterValue === val;
                         return (
@@ -172,14 +222,6 @@ const TripDetailsPage = () => {
                           </button>
                         );
                       })}
-                    </div>
-                  </div>
-                ))}
-                {Object.entries(summary.lists).map(([field, values]) => (
-                  <div key={field}>
-                    <p className="mb-2 font-heading text-sm font-semibold">{field}</p>
-                    <div className="space-y-0.5 max-h-48 overflow-y-auto">
-                      {values.map((val, i) => (<p key={i} className="text-sm text-muted-foreground truncate">• {val}</p>))}
                     </div>
                   </div>
                 ))}
