@@ -1,5 +1,5 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import { CalendarDays, MapPin, Users, Share2, Loader2, Clock, CreditCard } from 'lucide-react';
+import { CalendarDays, MapPin, Users, Share2, Loader2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +11,6 @@ import { toast } from 'sonner';
 const categoryLabels: Record<string, string> = {
   ski: 'Skidresa', group: 'Gruppresa', corporate: 'Företag', other: 'Övrigt',
 };
-
-const PAYMENT_URL = 'https://pay.vivawallet.com/willeworldwide';
 
 function getDaysUntil(dateStr: string): number {
   const now = new Date();
@@ -124,13 +122,6 @@ const TripRegistrationPage = () => {
                 </div>
 
                 <p className="text-sm text-muted-foreground leading-relaxed">{trip.description}</p>
-
-                {/* Payment link */}
-                <a href={PAYMENT_URL} target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline" size="sm" className="w-full gap-2">
-                    <CreditCard className="h-4 w-4" /> Betala din resa
-                  </Button>
-                </a>
 
                 {!isEmbed && (
                   <Button variant="ghost" size="sm" className="w-full gap-2 text-muted-foreground" onClick={handleShare}><Share2 className="h-4 w-4" /> Dela resa</Button>

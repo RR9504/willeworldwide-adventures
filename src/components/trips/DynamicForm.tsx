@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, CreditCard } from 'lucide-react';
 
 interface DynamicFormProps {
   fields: FormField[];
@@ -49,10 +49,16 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting }: DynamicFormProps) => {
 
   if (submitted) {
     return (
-      <div className="flex flex-col items-center gap-4 py-12 text-center">
+      <div className="flex flex-col items-center gap-6 py-12 text-center">
         <CheckCircle2 className="h-16 w-16 text-primary" />
         <h3 className="font-heading text-2xl font-bold">Tack för din anmälan!</h3>
         <p className="text-muted-foreground">Vi har tagit emot din anmälan. Du kommer att få en bekräftelse via e-post.</p>
+        <a href="https://pay.vivawallet.com/willeworldwide" target="_blank" rel="noopener noreferrer">
+          <Button size="lg" className="gap-2 font-heading font-semibold">
+            <CreditCard className="h-5 w-5" /> Betala din resa
+          </Button>
+        </a>
+        <p className="text-xs text-muted-foreground">Anmälningsavgift: 2 000 kr per person</p>
       </div>
     );
   }
