@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2, Send } from 'lucide-react';
+import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2, Send, ExternalLink } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -136,9 +136,10 @@ const TripDetailsPage = () => {
             <p className="text-sm text-muted-foreground">{trip.destination} · {new Date(trip.start_date).toLocaleDateString('sv-SE')}</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <a href={`/resa/${trip.id}`} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-2"><ExternalLink className="h-4 w-4" /> Visa bokningssida</Button></a>
             <Link to={`/dashboard/resor/${trip.id}/redigera`}><Button variant="outline" size="sm" className="gap-2"><Pencil className="h-4 w-4" /> Redigera</Button></Link>
             <Link to={`/dashboard/resor/${trip.id}/presentation`}><Button variant="outline" size="sm" className="gap-2"><FileText className="h-4 w-4" /> Deltagarpresentation</Button></Link>
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => { navigator.clipboard.writeText(shareLink); toast.success('Länk kopierad!'); }}><Share2 className="h-4 w-4" /> Dela länk</Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => { navigator.clipboard.writeText(shareLink); toast.success('Länk kopierad!'); }}><Share2 className="h-4 w-4" /> Kopiera länk</Button>
             <Button variant="outline" size="sm" className="gap-2" onClick={exportCSV}><Download className="h-4 w-4" /> Exportera CSV</Button>
           </div>
         </div>
