@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2, Send, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2, Send, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +32,7 @@ const TripDetailsPage = () => {
 
   const [filterField, setFilterField] = useState<string>('');
   const [filterValue, setFilterValue] = useState<string>('');
+  const [expandedSummary, setExpandedSummary] = useState<Record<string, boolean>>({});
 
   const fieldLabels = trip?.form_fields.map(f => f.label) ?? [];
   const allFilterLabels = [...fieldLabels, 'Betalningsstatus', 'Anmälningsdatum'];
@@ -208,23 +209,38 @@ const TripDetailsPage = () => {
             <CardHeader><CardTitle className="text-lg">Sammanställning</CardTitle></CardHeader>
             <CardContent>
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {Object.entries(summary.counts).map(([field, values]) => (
-                  <div key={field}>
-                    <p className="mb-2 font-heading text-sm font-semibold">{field}</p>
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                      {Object.entries(values).map(([val, count]) => {
-                        const isActive = filterField === field && filterValue === val;
-                        return (
-                          <button key={val} onClick={() => { if (isActive) { setFilterField(''); setFilterValue(''); } else { setFilterField(field); setFilterValue(val); } }}
-                            className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-sm transition-colors hover:bg-accent ${isActive ? 'bg-accent ring-1 ring-primary/30' : ''}`}>
-                            <span className="text-muted-foreground">{val === 'true' ? 'Ja' : val === 'false' ? 'Nej' : val}</span>
-                            <Badge variant="secondary">{count} st</Badge>
+                {Object.entries(summary.counts).map(([field, values]) => {
+                  const entries = Object.entries(values);
+                  const isExpanded = expandedSummary[field] || false;
+                  const PREVIEW_COUNT = 5;
+                  const hasMore = entries.length > PREVIEW_COUNT;
+                  const visible = isExpanded ? entries : entries.slice(0, PREVIEW_COUNT);
+                  return (
+                    <div key={field}>
+                      <p className="mb-2 font-heading text-sm font-semibold">{field}</p>
+                      <div className="space-y-1">
+                        {visible.map(([val, count]) => {
+                          const isActive = filterField === field && filterValue === val;
+                          return (
+                            <button key={val} onClick={() => { if (isActive) { setFilterField(''); setFilterValue(''); } else { setFilterField(field); setFilterValue(val); } }}
+                              className={`flex w-full items-center justify-between rounded-md px-2 py-1 text-sm transition-colors hover:bg-accent ${isActive ? 'bg-accent ring-1 ring-primary/30' : ''}`}>
+                              <span className="text-muted-foreground">{val === 'true' ? 'Ja' : val === 'false' ? 'Nej' : val}</span>
+                              <Badge variant="secondary">{count} st</Badge>
+                            </button>
+                          );
+                        })}
+                        {hasMore && (
+                          <button
+                            onClick={() => setExpandedSummary(prev => ({ ...prev, [field]: !isExpanded }))}
+                            className="flex w-full items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs text-primary transition-colors hover:bg-accent"
+                          >
+                            {isExpanded ? <><ChevronUp className="h-3 w-3" /> Visa färre</> : <><ChevronDown className="h-3 w-3" /> Visa alla ({entries.length})</>}
                           </button>
-                        );
-                      })}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
