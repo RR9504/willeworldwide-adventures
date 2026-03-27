@@ -1,5 +1,5 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import { CalendarDays, MapPin, Users, Share2, Loader2 } from 'lucide-react';
+import { CalendarDays, MapPin, Users, Share2, Loader2, Clock, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,16 @@ import { toast } from 'sonner';
 const categoryLabels: Record<string, string> = {
   ski: 'Skidresa', group: 'Gruppresa', corporate: 'Företag', other: 'Övrigt',
 };
+
+const PAYMENT_URL = 'https://pay.vivawallet.com/willeworldwide';
+
+function getDaysUntil(dateStr: string): number {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
 
 const TripRegistrationPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +54,7 @@ const TripRegistrationPage = () => {
   const startDate = new Date(trip.start_date);
   const endDate = new Date(trip.end_date);
   const dateStr = `${startDate.toLocaleDateString('sv-SE', { day: 'numeric', month: 'long' })} – ${endDate.toLocaleDateString('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  const daysUntil = getDaysUntil(trip.start_date);
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href.replace('?embed=true', ''));
@@ -89,16 +100,40 @@ const TripRegistrationPage = () => {
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-2 text-sm"><MapPin className="h-4 w-4 text-primary" /><span>{trip.destination}</span></div>
                 <div className="flex items-center gap-2 text-sm"><CalendarDays className="h-4 w-4 text-primary" /><span>{dateStr}</span></div>
-                {trip.show_spots_left && (!trip.spots_left_threshold || spotsLeft <= trip.spots_left_threshold) && (
-                  <div className="flex items-center gap-2 text-sm"><Users className="h-4 w-4 text-primary" /><span>{spotsLeft > 0 ? `${spotsLeft} av ${trip.max_participants} platser kvar` : 'Fullbokad'}</span></div>
+
+                {/* Countdown */}
+                {daysUntil > 0 && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span>{daysUntil} dagar till avresa</span>
+                  </div>
                 )}
+
+                {/* Spots left */}
+                {trip.show_spots_left && (!trip.spots_left_threshold || spotsLeft <= trip.spots_left_threshold) && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Users className="h-4 w-4 text-primary" />
+                    <span>{spotsLeft > 0 ? `${spotsLeft} platser kvar` : 'Fullbokad'}</span>
+                  </div>
+                )}
+
+                {/* Price */}
                 <div className="rounded-lg bg-accent p-4 text-center">
                   <p className="text-sm text-muted-foreground">Pris från</p>
                   <p className="font-heading text-3xl font-bold text-foreground">{trip.price.toLocaleString('sv-SE')} <span className="text-base">{trip.currency}</span></p>
                 </div>
+
                 <p className="text-sm text-muted-foreground leading-relaxed">{trip.description}</p>
+
+                {/* Payment link */}
+                <a href={PAYMENT_URL} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm" className="w-full gap-2">
+                    <CreditCard className="h-4 w-4" /> Betala din resa
+                  </Button>
+                </a>
+
                 {!isEmbed && (
-                  <Button variant="outline" size="sm" className="w-full gap-2" onClick={handleShare}><Share2 className="h-4 w-4" /> Dela resa</Button>
+                  <Button variant="ghost" size="sm" className="w-full gap-2 text-muted-foreground" onClick={handleShare}><Share2 className="h-4 w-4" /> Dela resa</Button>
                 )}
               </CardContent>
             </Card>
