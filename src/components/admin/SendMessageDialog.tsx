@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Send, Mail, MessageSquare, Loader2 } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Send, Mail, MessageSquare, Loader2, Paperclip, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,6 +23,8 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle }: 
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const recipientNames = recipients.map(r =>
     `${r.form_data['Förnamn'] || ''} ${r.form_data['Efternamn'] || ''}`.trim()
@@ -48,6 +50,7 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle }: 
       channel,
       subject,
       message,
+      files: files.map(f => f.name),
       recipients: recipients.map(r => ({
         name: `${r.form_data['Förnamn']} ${r.form_data['Efternamn']}`,
         email: r.form_data['E-post'],
@@ -62,6 +65,7 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle }: 
     setOpen(false);
     setMessage('');
     setSubject('');
+    setFiles([]);
 
     const channelLabel = channel === 'email' ? 'e-post' : channel === 'sms' ? 'SMS' : 'e-post + SMS';
     toast.success(`${channelLabel} skickat till ${recipients.length} mottagare`);
@@ -165,6 +169,37 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle }: 
               Tips: Använd {'{förnamn}'} för att personalisera meddelandet.
             </p>
           </div>
+
+          {/* File attachments */}
+          {(channel === 'email' || channel === 'both') && (
+            <div className="space-y-2">
+              <Label className="text-sm">Bifoga filer</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={e => {
+                  if (e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                }}
+              />
+              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()}>
+                <Paperclip className="h-3.5 w-3.5" /> Välj fil
+              </Button>
+              {files.length > 0 && (
+                <div className="space-y-1">
+                  {files.map((f, i) => (
+                    <div key={i} className="flex items-center justify-between rounded bg-muted px-2 py-1 text-sm">
+                      <span className="truncate">{f.name} <span className="text-muted-foreground">({(f.size / 1024).toFixed(0)} KB)</span></span>
+                      <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} className="ml-2 text-muted-foreground hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Send button */}
           <Button onClick={handleSend} disabled={sending} className="w-full gap-2">

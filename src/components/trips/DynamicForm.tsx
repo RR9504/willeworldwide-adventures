@@ -1,20 +1,21 @@
 import { useState } from 'react';
-import { FormField } from '@/types/trip';
+import { FormField, Trip } from '@/types/trip';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, CreditCard } from 'lucide-react';
+import { CheckCircle2, CreditCard, Smartphone } from 'lucide-react';
 
 interface DynamicFormProps {
   fields: FormField[];
   onSubmit: (data: Record<string, any>) => void;
   isSubmitting?: boolean;
+  paymentInfo?: Trip['payment_info'];
 }
 
-const DynamicForm = ({ fields, onSubmit, isSubmitting }: DynamicFormProps) => {
+const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFormProps) => {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [gdprAccepted, setGdprAccepted] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -53,12 +54,34 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting }: DynamicFormProps) => {
         <CheckCircle2 className="h-16 w-16 text-primary" />
         <h3 className="font-heading text-2xl font-bold">Tack för din anmälan!</h3>
         <p className="text-muted-foreground">Vi har tagit emot din anmälan. Du kommer att få en bekräftelse via e-post.</p>
-        <a href="https://pay.vivawallet.com/willeworldwide" target="_blank" rel="noopener noreferrer">
-          <Button size="lg" className="gap-2 font-heading font-semibold">
-            <CreditCard className="h-5 w-5" /> Betala din resa
-          </Button>
-        </a>
-        <p className="text-xs text-muted-foreground">En reservationsavgift på 2 000 kr per person betalas vid bokning. Resterande belopp faktureras ca 3 veckor före avresa.</p>
+
+        {paymentInfo?.method === 'swish' && (
+          <div className="rounded-lg border bg-accent p-5 text-center space-y-2">
+            <Smartphone className="mx-auto h-8 w-8 text-primary" />
+            <p className="font-heading font-bold text-lg">Betala med Swish</p>
+            <p className="text-2xl font-bold font-heading">{paymentInfo.number}</p>
+            {paymentInfo.name && <p className="text-sm text-muted-foreground">{paymentInfo.name}</p>}
+            {paymentInfo.amount && <p className="text-sm font-medium">{paymentInfo.amount} kr</p>}
+            {paymentInfo.note && <p className="text-xs text-muted-foreground">{paymentInfo.note}</p>}
+          </div>
+        )}
+
+        {paymentInfo?.method === 'viva' && paymentInfo.url && (
+          <>
+            <a href={paymentInfo.url} target="_blank" rel="noopener noreferrer">
+              <Button size="lg" className="gap-2 font-heading font-semibold">
+                <CreditCard className="h-5 w-5" /> Betala din resa
+              </Button>
+            </a>
+            {paymentInfo.amount && paymentInfo.note && (
+              <p className="text-xs text-muted-foreground">{paymentInfo.amount} kr — {paymentInfo.note}</p>
+            )}
+          </>
+        )}
+
+        {!paymentInfo && (
+          <p className="text-sm text-muted-foreground">Betalningsinformation skickas via e-post.</p>
+        )}
       </div>
     );
   }

@@ -140,7 +140,7 @@ const TripRegistrationPage = () => {
                     <p className="mt-2 text-muted-foreground">Kontakta oss om du vill stå på väntelista.</p>
                   </div>
                 ) : (
-                  <DynamicForm fields={trip.form_fields} onSubmit={handleSubmit} />
+                  <DynamicForm fields={trip.form_fields} onSubmit={handleSubmit} paymentInfo={trip.payment_info} />
                 )}
               </CardContent>
             </Card>

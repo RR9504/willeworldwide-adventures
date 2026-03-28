@@ -24,6 +24,7 @@ function mapTrip(row: any): Trip {
     status: row.status as TripStatus,
     form_fields: (typeof row.form_fields === 'string' ? JSON.parse(row.form_fields) : row.form_fields) as FormField[],
     presentation_fields: (typeof row.presentation_fields === 'string' ? JSON.parse(row.presentation_fields) : row.presentation_fields) as PresentationQuestion[],
+    payment_info: row.payment_info ? (typeof row.payment_info === 'string' ? JSON.parse(row.payment_info) : row.payment_info) : undefined,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };

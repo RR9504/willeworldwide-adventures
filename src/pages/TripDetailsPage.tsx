@@ -191,7 +191,9 @@ const TripDetailsPage = () => {
           <div className="flex flex-wrap gap-2">
             <a href={`/resa/${trip.id}`} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-2"><ExternalLink className="h-4 w-4" /> Visa bokningssida</Button></a>
             <Link to={`/dashboard/resor/${trip.id}/redigera`}><Button variant="outline" size="sm" className="gap-2"><Pencil className="h-4 w-4" /> Redigera</Button></Link>
-            <Link to={`/dashboard/resor/${trip.id}/presentation`}><Button variant="outline" size="sm" className="gap-2"><FileText className="h-4 w-4" /> Deltagarpresentation</Button></Link>
+            {trip.presentation_fields.length > 0 && (
+              <Link to={`/dashboard/resor/${trip.id}/presentation`}><Button variant="outline" size="sm" className="gap-2"><FileText className="h-4 w-4" /> Deltagarpresentation</Button></Link>
+            )}
             <Button variant="outline" size="sm" className="gap-2" onClick={() => { navigator.clipboard.writeText(shareLink); toast.success('Länk kopierad!'); }}><Share2 className="h-4 w-4" /> Kopiera länk</Button>
             <Button variant="outline" size="sm" className="gap-2" onClick={exportCSV}><Download className="h-4 w-4" /> Exportera CSV</Button>
           </div>
@@ -285,7 +287,7 @@ const TripDetailsPage = () => {
                   <TableRow>
                     <TableHead className="w-10">#</TableHead>
                     {allFilterLabels.map(l => <TableHead key={l}>{l}</TableHead>)}
-                    <TableHead>Lär känna</TableHead>
+                    {trip.presentation_fields.length > 0 && <TableHead>Lär känna</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -327,11 +329,13 @@ const TripDetailsPage = () => {
                           ) : (getColumnValue(r, col) || '–')}
                         </TableCell>
                       ))}
-                      <TableCell>
-                        {r.presentation_data && Object.keys(r.presentation_data).length > 0
-                          ? <Badge variant="default" className="bg-green-100 text-green-700 hover:bg-green-100">Ifylld</Badge>
-                          : <Badge variant="outline" className="text-muted-foreground">Saknas</Badge>}
-                      </TableCell>
+                      {trip.presentation_fields.length > 0 && (
+                        <TableCell>
+                          {r.presentation_data && Object.keys(r.presentation_data).length > 0
+                            ? <Badge variant="default" className="bg-green-100 text-green-700 hover:bg-green-100">Ifylld</Badge>
+                            : <Badge variant="outline" className="text-muted-foreground">Saknas</Badge>}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                   {filteredRegs.length === 0 && (

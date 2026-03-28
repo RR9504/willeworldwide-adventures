@@ -52,6 +52,14 @@ export interface Trip {
   status: TripStatus;
   form_fields: FormField[];
   presentation_fields: PresentationQuestion[];
+  payment_info?: {
+    method: 'swish' | 'viva' | 'other';
+    url?: string;
+    number?: string;
+    name?: string;
+    amount?: number;
+    note?: string;
+  };
   created_at: string;
   updated_at: string;
 }
