@@ -57,8 +57,8 @@ export function useCreateTrip() {
   return useMutation({
     mutationFn: async (trip: Omit<Trip, 'id' | 'created_at' | 'updated_at'>) => {
       const rows = await sql`
-        INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields)
-        VALUES (${trip.title}, ${trip.description}, ${trip.destination}, ${trip.category}, ${trip.start_date}, ${trip.end_date}, ${trip.price}, ${trip.currency}, ${trip.max_participants}, ${trip.show_spots_left}, ${trip.spots_left_threshold ?? null}, ${trip.image_url}, ${trip.image_position ?? null}, ${trip.status}, ${JSON.stringify(trip.form_fields)}, ${JSON.stringify(trip.presentation_fields)})
+        INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, payment_info)
+        VALUES (${trip.title}, ${trip.description}, ${trip.destination}, ${trip.category}, ${trip.start_date}, ${trip.end_date}, ${trip.price}, ${trip.currency}, ${trip.max_participants}, ${trip.show_spots_left}, ${trip.spots_left_threshold ?? null}, ${trip.image_url}, ${trip.image_position ?? null}, ${trip.status}, ${JSON.stringify(trip.form_fields)}, ${JSON.stringify(trip.presentation_fields)}, ${trip.payment_info ? JSON.stringify(trip.payment_info) : null})
         RETURNING *
       `;
       return mapTrip(rows[0]);
@@ -90,7 +90,8 @@ export function useUpdateTrip() {
           image_position = ${updates.image_position ?? null},
           status = COALESCE(${updates.status ?? null}, status),
           form_fields = COALESCE(${updates.form_fields ? JSON.stringify(updates.form_fields) : null}, form_fields),
-          presentation_fields = COALESCE(${updates.presentation_fields ? JSON.stringify(updates.presentation_fields) : null}, presentation_fields)
+          presentation_fields = COALESCE(${updates.presentation_fields ? JSON.stringify(updates.presentation_fields) : null}, presentation_fields),
+          payment_info = ${(updates as any).payment_info ? JSON.stringify((updates as any).payment_info) : null}
         WHERE id = ${id}
         RETURNING *
       `;
@@ -127,7 +128,8 @@ export function useSaveTrip() {
             image_position = ${rest.image_position ?? null},
             status = COALESCE(${rest.status ?? null}, status),
             form_fields = COALESCE(${rest.form_fields ? JSON.stringify(rest.form_fields) : null}, form_fields),
-            presentation_fields = COALESCE(${rest.presentation_fields ? JSON.stringify(rest.presentation_fields) : null}, presentation_fields)
+            presentation_fields = COALESCE(${rest.presentation_fields ? JSON.stringify(rest.presentation_fields) : null}, presentation_fields),
+            payment_info = ${(rest as any).payment_info ? JSON.stringify((rest as any).payment_info) : null}
           WHERE id = ${id}
           RETURNING *
         `;
@@ -135,8 +137,8 @@ export function useSaveTrip() {
       } else {
         const t = rest as Omit<Trip, 'id' | 'created_at' | 'updated_at'>;
         const rows = await sql`
-          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields)
-          VALUES (${t.title}, ${t.description}, ${t.destination}, ${t.category}, ${t.start_date}, ${t.end_date}, ${t.price}, ${t.currency}, ${t.max_participants}, ${t.show_spots_left}, ${t.spots_left_threshold ?? null}, ${t.image_url}, ${t.image_position ?? null}, ${t.status}, ${JSON.stringify(t.form_fields)}, ${JSON.stringify(t.presentation_fields)})
+          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, payment_info)
+          VALUES (${t.title}, ${t.description}, ${t.destination}, ${t.category}, ${t.start_date}, ${t.end_date}, ${t.price}, ${t.currency}, ${t.max_participants}, ${t.show_spots_left}, ${t.spots_left_threshold ?? null}, ${t.image_url}, ${t.image_position ?? null}, ${t.status}, ${JSON.stringify(t.form_fields)}, ${JSON.stringify(t.presentation_fields)}, ${(t as any).payment_info ? JSON.stringify((t as any).payment_info) : null})
           RETURNING *
         `;
         return mapTrip(rows[0]);

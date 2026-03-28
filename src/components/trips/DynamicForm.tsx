@@ -55,28 +55,26 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFor
         <h3 className="font-heading text-2xl font-bold">Tack för din anmälan!</h3>
         <p className="text-muted-foreground">Vi har tagit emot din anmälan. Du kommer att få en bekräftelse via e-post.</p>
 
-        {paymentInfo?.method === 'swish' && (
+        {paymentInfo?.swish && (
           <div className="rounded-lg border bg-accent p-5 text-center space-y-2">
             <Smartphone className="mx-auto h-8 w-8 text-primary" />
-            <p className="font-heading font-bold text-lg">Betala med Swish</p>
-            <p className="text-2xl font-bold font-heading">{paymentInfo.number}</p>
-            {paymentInfo.name && <p className="text-sm text-muted-foreground">{paymentInfo.name}</p>}
-            {paymentInfo.amount && <p className="text-sm font-medium">{paymentInfo.amount} kr</p>}
-            {paymentInfo.note && <p className="text-xs text-muted-foreground">{paymentInfo.note}</p>}
+            <p className="font-heading font-bold text-lg">Swish</p>
+            <p className="text-2xl font-bold font-heading">{paymentInfo.swish.number}</p>
+            <p className="text-sm text-muted-foreground">{paymentInfo.swish.name}</p>
+            {paymentInfo.swish.amount && <p className="text-sm font-medium">{paymentInfo.swish.amount} kr</p>}
           </div>
         )}
 
-        {paymentInfo?.method === 'viva' && paymentInfo.url && (
-          <>
-            <a href={paymentInfo.url} target="_blank" rel="noopener noreferrer">
-              <Button size="lg" className="gap-2 font-heading font-semibold">
-                <CreditCard className="h-5 w-5" /> Betala din resa
-              </Button>
-            </a>
-            {paymentInfo.amount && paymentInfo.note && (
-              <p className="text-xs text-muted-foreground">{paymentInfo.amount} kr — {paymentInfo.note}</p>
-            )}
-          </>
+        {paymentInfo?.viva && (
+          <a href={paymentInfo.viva.url} target="_blank" rel="noopener noreferrer">
+            <Button size="lg" className="gap-2 font-heading font-semibold">
+              <CreditCard className="h-5 w-5" /> Betala med kort
+            </Button>
+          </a>
+        )}
+
+        {paymentInfo?.note && (
+          <p className="text-xs text-muted-foreground">{paymentInfo.note}</p>
         )}
 
         {!paymentInfo && (

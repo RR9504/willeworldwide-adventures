@@ -73,6 +73,14 @@ const CreateTripPage = () => {
   const [status, setStatus] = useState<TripStatus>(existingTrip?.status || 'draft');
   const [formFields, setFormFields] = useState<FormField[]>(existingTrip?.form_fields || defaultFormFields);
   const [presentationFields, setPresentationFields] = useState<PresentationQuestion[]>(existingTrip?.presentation_fields || defaultPresentationFields);
+  const [swishEnabled, setSwishEnabled] = useState(!!existingTrip?.payment_info?.swish);
+  const [vivaEnabled, setVivaEnabled] = useState(!!existingTrip?.payment_info?.viva);
+  const [swishNumber, setSwishNumber] = useState(existingTrip?.payment_info?.swish?.number || '123 672 47 36');
+  const [swishName, setSwishName] = useState(existingTrip?.payment_info?.swish?.name || 'Wille Worldwide AB');
+  const [swishAmount, setSwishAmount] = useState(existingTrip?.payment_info?.swish?.amount?.toString() || '');
+  const [vivaUrl, setVivaUrl] = useState(existingTrip?.payment_info?.viva?.url || 'https://pay.vivawallet.com/willeworldwide');
+  const [vivaAmount, setVivaAmount] = useState(existingTrip?.payment_info?.viva?.amount?.toString() || '');
+  const [paymentNote, setPaymentNote] = useState(existingTrip?.payment_info?.note || '');
   const [saving, setSaving] = useState(false);
 
   const addField = (type: FormFieldType) => {
@@ -126,6 +134,11 @@ const CreateTripPage = () => {
         status,
         form_fields: formFields,
         presentation_fields: presentationFields,
+        payment_info: (swishEnabled || vivaEnabled) ? {
+          ...(swishEnabled ? { swish: { number: swishNumber, name: swishName, amount: swishAmount ? Number(swishAmount) : undefined } } : {}),
+          ...(vivaEnabled ? { viva: { url: vivaUrl, amount: vivaAmount ? Number(vivaAmount) : undefined } } : {}),
+          note: paymentNote || undefined,
+        } : undefined,
       } as any);
       toast.success(isEditing ? 'Resan uppdaterad!' : 'Resan skapad!');
       navigate('/dashboard');
@@ -159,6 +172,7 @@ const CreateTripPage = () => {
             <TabsTrigger value="details">Reseinformation</TabsTrigger>
             <TabsTrigger value="form">Anmälningsformulär</TabsTrigger>
             <TabsTrigger value="presentation">Lär känna-frågor</TabsTrigger>
+            <TabsTrigger value="payment">Betalning</TabsTrigger>
             <TabsTrigger value="preview" className="gap-1.5">
               <Eye className="h-3.5 w-3.5" /> Förhandsgranska
             </TabsTrigger>
@@ -433,7 +447,70 @@ const CreateTripPage = () => {
             </Card>
           </TabsContent>
 
-          {/* Tab 4: Preview */}
+          {/* Tab 4: Payment */}
+          <TabsContent value="payment">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Betalningsinformation</CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Visas för kunden efter inskickad anmälan. Du kan aktivera Swish, kortbetalning eller båda.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Swish */}
+                <div className="space-y-3 rounded-lg border p-4">
+                  <div className="flex items-center gap-3">
+                    <Switch checked={swishEnabled} onCheckedChange={setSwishEnabled} />
+                    <Label className="font-heading font-semibold">Swish</Label>
+                  </div>
+                  {swishEnabled && (
+                    <div className="grid gap-3 sm:grid-cols-3 pl-1">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Swish-nummer</Label>
+                        <Input value={swishNumber} onChange={e => setSwishNumber(e.target.value)} placeholder="123 456 78 90" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Mottagarnamn</Label>
+                        <Input value={swishName} onChange={e => setSwishName(e.target.value)} placeholder="Företagsnamn AB" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Belopp (kr)</Label>
+                        <Input type="number" value={swishAmount} onChange={e => setSwishAmount(e.target.value)} placeholder="t.ex. 850" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Viva / Kort */}
+                <div className="space-y-3 rounded-lg border p-4">
+                  <div className="flex items-center gap-3">
+                    <Switch checked={vivaEnabled} onCheckedChange={setVivaEnabled} />
+                    <Label className="font-heading font-semibold">Kortbetalning (Viva Wallet)</Label>
+                  </div>
+                  {vivaEnabled && (
+                    <div className="grid gap-3 sm:grid-cols-2 pl-1">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Betalningslänk</Label>
+                        <Input value={vivaUrl} onChange={e => setVivaUrl(e.target.value)} placeholder="https://pay.vivawallet.com/..." />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Belopp (kr)</Label>
+                        <Input type="number" value={vivaAmount} onChange={e => setVivaAmount(e.target.value)} placeholder="t.ex. 2000" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Note */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Betalningsinfo (visas under betalknappen)</Label>
+                  <Input value={paymentNote} onChange={e => setPaymentNote(e.target.value)} placeholder="t.ex. Betalas senast 1 maj" />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab 5: Preview */}
           <TabsContent value="preview">
             <FormPreview fields={formFields} tripTitle={title} />
           </TabsContent>

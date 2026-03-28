@@ -55,11 +55,8 @@ export interface Trip {
   form_fields: FormField[];
   presentation_fields: PresentationQuestion[];
   payment_info?: {
-    method: 'swish' | 'viva' | 'other';
-    url?: string;
-    number?: string;
-    name?: string;
-    amount?: number;
+    swish?: { number: string; name: string; amount?: number };
+    viva?: { url: string; amount?: number };
     note?: string;
   };
   created_at: string;
