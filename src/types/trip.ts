@@ -21,6 +21,8 @@ export interface FormField {
   type: FormFieldType;
   label: string;
   placeholder?: string;
+  description?: string;
+  descriptionUrl?: string;
   required: boolean;
   options?: FormFieldOption[];
   conditionalFields?: ConditionalField[];

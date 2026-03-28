@@ -93,6 +93,14 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFor
         <Label className="text-sm font-medium">
           {field.label} {field.required && <span className="text-primary">*</span>}
         </Label>
+        {field.description && (
+          <p className="text-xs text-muted-foreground">
+            {field.description}
+            {field.descriptionUrl && (
+              <> — <a href={field.descriptionUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:no-underline">Läs mer här</a></>
+            )}
+          </p>
+        )}
         {field.type === 'text' || field.type === 'email' || field.type === 'phone' ? (
           <Input
             type={field.type === 'phone' ? 'tel' : field.type}

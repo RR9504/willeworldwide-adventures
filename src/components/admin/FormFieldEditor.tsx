@@ -167,6 +167,26 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
               </div>
             )}
 
+            {/* Description + link */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Beskrivning (visas under fältet)</Label>
+                <Input
+                  value={field.description || ''}
+                  onChange={e => update({ description: e.target.value })}
+                  placeholder="t.ex. Se info om buffé och pris"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Länk (valfri)</Label>
+                <Input
+                  value={field.descriptionUrl || ''}
+                  onChange={e => update({ descriptionUrl: e.target.value })}
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+
             {/* Required toggle */}
             <div className="flex items-center gap-3">
               <Switch checked={field.required} onCheckedChange={v => update({ required: v })} />
