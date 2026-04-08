@@ -18,6 +18,11 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const ExternalRedirect = () => {
+  window.location.href = 'https://willeworldwide.se';
+  return null;
+};
+
 const ProtectedRoute = () => {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -28,7 +33,7 @@ const BookingApp = () => (
   <Routes>
     <Route path="/resa/:id" element={<TripRegistrationPage />} />
     <Route path="/resa/:id/presentation/:regId" element={<PresentationFormPage />} />
-    <Route path="*" element={<Navigate to="/resa/not-found" replace />} />
+    <Route path="*" element={<ExternalRedirect />} />
   </Routes>
 );
 
