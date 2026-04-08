@@ -1,10 +1,5 @@
-const hostname = window.location.hostname;
-
-// Booking domain: only public routes (registration, presentation form)
-export const isBookingDomain = hostname === 'boka.willeworldwide.se';
-
-// Admin domain: login + dashboard routes
-export const isAdminDomain = hostname === 'admin.willeworldwide.se';
-
-// Development or other domains: show everything
-export const isDevDomain = !isBookingDomain && !isAdminDomain;
+// Single domain: all routes available on boka.willeworldwide.se
+// Admin accessed via /login and /dashboard paths
+export const isBookingDomain = false;
+export const isAdminDomain = false;
+export const isDevDomain = true;
