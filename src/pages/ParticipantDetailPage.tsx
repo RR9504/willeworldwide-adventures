@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2, Receipt, Printer, CheckCircle2, Send } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/layout/Header';
 import { useTrip, useRegistrations, useUpdateRegistration } from '@/hooks/useTrips';
@@ -80,6 +80,7 @@ const ParticipantDetailPage = () => {
             </CardContent>
           </Card>
 
+          <div className="space-y-6">
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><CreditCard className="h-5 w-5 text-primary" /> Betalning</CardTitle></CardHeader>
             <CardContent>
@@ -110,9 +111,92 @@ const ParticipantDetailPage = () => {
                   <span className="text-sm font-medium">{trip.price.toLocaleString('sv-SE')} {trip.currency}</span>
                 </div>
                 {reg.payment_note && (<div><span className="text-sm text-muted-foreground">Anteckning</span><p className="mt-1 text-sm">{reg.payment_note}</p></div>)}
+
+                {/* Order confirmation */}
+                {reg.payment_status === 'paid' && (
+                  <div className="border-t pt-3 space-y-2">
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span className="text-sm font-medium">Betalning mottagen</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-2 w-full"
+                      onClick={() => {
+                        const email = reg.form_data['E-post'];
+                        const firstName = reg.form_data['Förnamn'] || '';
+                        // TODO: Wire to actual email/SMS sending (Resend/46elks)
+                        console.log('Send order confirmation to:', { email, firstName, trip: trip.title });
+                        toast.success(
+                          email
+                            ? `Orderbekräftelse skickas till ${email}`
+                            : 'Orderbekräftelse skickad'
+                        );
+                      }}
+                    >
+                      <Send className="h-4 w-4" /> Skicka orderbekräftelse
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
+
+          {/* Fakturaunderlag */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-lg"><Receipt className="h-5 w-5 text-primary" /> Fakturaunderlag</CardTitle>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.print()}>
+                  <Printer className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Resenär</span>
+                  <span className="text-sm font-medium">{name}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Resa</span>
+                  <span className="text-sm font-medium">{trip.title}</span>
+                </div>
+                <div className="border-t pt-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Totalpris</span>
+                    <span className="text-sm font-medium">{trip.price.toLocaleString('sv-SE')} {trip.currency}</span>
+                  </div>
+                  {trip.payment_info?.deposit && trip.payment_info.deposit > 0 && (
+                    <>
+                      <div className="flex items-center justify-between text-green-600">
+                        <span className="text-sm">Deposition (betald)</span>
+                        <span className="text-sm font-medium">−{trip.payment_info.deposit.toLocaleString('sv-SE')} {trip.currency}</span>
+                      </div>
+                      <div className="flex items-center justify-between border-t pt-2">
+                        <span className="text-sm font-semibold">Att betala</span>
+                        <span className="text-sm font-bold">{(trip.price - trip.payment_info.deposit).toLocaleString('sv-SE')} {trip.currency}</span>
+                      </div>
+                    </>
+                  )}
+                  {(!trip.payment_info?.deposit || trip.payment_info.deposit <= 0) && (
+                    <div className="flex items-center justify-between border-t pt-2">
+                      <span className="text-sm font-semibold">Att betala</span>
+                      <span className="text-sm font-bold">{trip.price.toLocaleString('sv-SE')} {trip.currency}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-muted-foreground">Betalningsstatus</span>
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${paymentColors[reg.payment_status]}`}>
+                    {paymentLabels[reg.payment_status]}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          </div>
 
           <Card className="lg:col-span-2">
             <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><MessageCircle className="h-5 w-5 text-primary" /> Lär känna – svar</CardTitle></CardHeader>

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import DynamicForm from '@/components/trips/DynamicForm';
-import { useTrip, useRegistrations, useCreateRegistration } from '@/hooks/useTrips';
+import { useTrip, useRegistrations, useCreateRegistration, useCreateRegistrations } from '@/hooks/useTrips';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -27,6 +27,7 @@ const TripRegistrationPage = () => {
   const { data: trip, isLoading: tripLoading } = useTrip(id);
   const { data: registrations = [] } = useRegistrations(id);
   const createRegistration = useCreateRegistration();
+  const createRegistrations = useCreateRegistrations();
 
   if (tripLoading) {
     return (
@@ -59,10 +60,22 @@ const TripRegistrationPage = () => {
     toast.success('Länk kopierad!');
   };
 
-  const handleSubmit = async (data: Record<string, any>) => {
+  const handleSubmit = async (data: Record<string, any>, companions?: Record<string, any>[]) => {
     try {
-      await createRegistration.mutateAsync({ trip_id: trip.id, form_data: data });
-      toast.success('Anmälan skickad!');
+      const groupId = companions?.length ? crypto.randomUUID() : undefined;
+      const mainData = groupId ? { ...data, _group_id: groupId } : data;
+
+      if (companions && companions.length > 0) {
+        const allRegs = [
+          { trip_id: trip.id, form_data: mainData },
+          ...companions.map(c => ({ trip_id: trip.id, form_data: { ...c, _group_id: groupId } })),
+        ];
+        await createRegistrations.mutateAsync(allRegs);
+        toast.success(`${allRegs.length} anmälningar skickade!`);
+      } else {
+        await createRegistration.mutateAsync({ trip_id: trip.id, form_data: mainData });
+        toast.success('Anmälan skickad!');
+      }
     } catch {
       toast.error('Något gick fel. Försök igen.');
     }
@@ -140,7 +153,7 @@ const TripRegistrationPage = () => {
                     <p className="mt-2 text-muted-foreground">Kontakta oss om du vill stå på väntelista.</p>
                   </div>
                 ) : (
-                  <DynamicForm fields={trip.form_fields} onSubmit={handleSubmit} paymentInfo={trip.payment_info} />
+                  <DynamicForm fields={trip.form_fields} onSubmit={handleSubmit} paymentInfo={trip.payment_info} tripPrice={trip.price} />
                 )}
               </CardContent>
             </Card>

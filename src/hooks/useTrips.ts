@@ -3,7 +3,7 @@ import { sql } from '@/lib/db';
 import { Trip, TripCategory, TripStatus, FormField, PresentationQuestion } from '@/types/trip';
 
 // Re-export registration hooks so pages can import everything from useTrips
-export { useRegistrations, useAllRegistrations, useRegistration, useCreateRegistration, useUpdateRegistration } from './useRegistrations';
+export { useRegistrations, useAllRegistrations, useRegistration, useCreateRegistration, useCreateRegistrations, useUpdateRegistration } from './useRegistrations';
 
 function mapTrip(row: any): Trip {
   return {

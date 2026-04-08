@@ -80,6 +80,7 @@ const CreateTripPage = () => {
   const [swishAmount, setSwishAmount] = useState(existingTrip?.payment_info?.swish?.amount?.toString() || '');
   const [vivaUrl, setVivaUrl] = useState(existingTrip?.payment_info?.viva?.url || 'https://pay.vivawallet.com/willeworldwide');
   const [vivaAmount, setVivaAmount] = useState(existingTrip?.payment_info?.viva?.amount?.toString() || '');
+  const [depositAmount, setDepositAmount] = useState(existingTrip?.payment_info?.deposit?.toString() || '');
   const [paymentNote, setPaymentNote] = useState(existingTrip?.payment_info?.note || '');
   const [saving, setSaving] = useState(false);
 
@@ -134,9 +135,10 @@ const CreateTripPage = () => {
         status,
         form_fields: formFields,
         presentation_fields: presentationFields,
-        payment_info: (swishEnabled || vivaEnabled) ? {
+        payment_info: (swishEnabled || vivaEnabled || depositAmount) ? {
           ...(swishEnabled ? { swish: { number: swishNumber, name: swishName, amount: swishAmount ? Number(swishAmount) : undefined } } : {}),
           ...(vivaEnabled ? { viva: { url: vivaUrl, amount: vivaAmount ? Number(vivaAmount) : undefined } } : {}),
+          deposit: depositAmount ? Number(depositAmount) : undefined,
           note: paymentNote || undefined,
         } : undefined,
       } as any);
@@ -499,6 +501,18 @@ const CreateTripPage = () => {
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Deposit */}
+                <div className="space-y-3 rounded-lg border p-4">
+                  <Label className="font-heading font-semibold">Deposition</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Ange depositionsbelopp som kunden måste betala för att anmälan ska bli giltig. Lämna tomt om ingen deposition krävs.
+                  </p>
+                  <div className="space-y-1 max-w-xs">
+                    <Label className="text-xs">Depositionsbelopp (kr)</Label>
+                    <Input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} placeholder="t.ex. 2000" />
+                  </div>
                 </div>
 
                 {/* Note */}

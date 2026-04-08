@@ -70,6 +70,27 @@ export function useCreateRegistration() {
   });
 }
 
+export function useCreateRegistrations() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (regs: { trip_id: string; form_data: Record<string, any> }[]) => {
+      const results: Registration[] = [];
+      for (const reg of regs) {
+        const rows = await sql`
+          INSERT INTO registrations (trip_id, form_data)
+          VALUES (${reg.trip_id}, ${JSON.stringify(reg.form_data)})
+          RETURNING *
+        `;
+        results.push(mapRegistration(rows[0]));
+      }
+      return results;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registrations'] });
+    },
+  });
+}
+
 export function useUpdateRegistration() {
   const queryClient = useQueryClient();
   return useMutation({

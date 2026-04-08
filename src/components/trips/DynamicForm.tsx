@@ -6,28 +6,51 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, CreditCard, Smartphone } from 'lucide-react';
+import { CheckCircle2, CreditCard, Smartphone, AlertTriangle, UserPlus, X } from 'lucide-react';
 
 interface DynamicFormProps {
   fields: FormField[];
-  onSubmit: (data: Record<string, any>) => void;
+  onSubmit: (data: Record<string, any>, companions?: Record<string, any>[]) => void;
   isSubmitting?: boolean;
   paymentInfo?: Trip['payment_info'];
+  tripPrice?: number;
 }
 
-const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFormProps) => {
+const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }: DynamicFormProps) => {
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [companions, setCompanions] = useState<Record<string, any>[]>([]);
   const [gdprAccepted, setGdprAccepted] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const totalPeople = 1 + companions.length;
 
   const updateField = (label: string, value: any) => {
     setFormData(prev => ({ ...prev, [label]: value }));
     setErrors(prev => ({ ...prev, [label]: '' }));
   };
 
+  const updateCompanionField = (index: number, label: string, value: any) => {
+    setCompanions(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [label]: value };
+      return updated;
+    });
+    setErrors(prev => ({ ...prev, [`companion_${index}_${label}`]: '' }));
+  };
+
+  const addCompanion = () => {
+    setCompanions(prev => [...prev, {}]);
+  };
+
+  const removeCompanion = (index: number) => {
+    setCompanions(prev => prev.filter((_, i) => i !== index));
+  };
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
+
+    // Validate main form
     fields.forEach(field => {
       if (field.required && !formData[field.label]) {
         newErrors[field.label] = 'Detta fält är obligatoriskt';
@@ -36,6 +59,19 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFor
         newErrors[field.label] = 'Ogiltig e-postadress';
       }
     });
+
+    // Validate companions
+    companions.forEach((companion, idx) => {
+      fields.forEach(field => {
+        if (field.required && !companion[field.label]) {
+          newErrors[`companion_${idx}_${field.label}`] = 'Detta fält är obligatoriskt';
+        }
+        if (field.type === 'email' && companion[field.label] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companion[field.label])) {
+          newErrors[`companion_${idx}_${field.label}`] = 'Ogiltig e-postadress';
+        }
+      });
+    });
+
     if (!gdprAccepted) newErrors['gdpr'] = 'Du måste godkänna villkoren';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -44,16 +80,48 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFor
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    onSubmit(formData);
+    onSubmit(formData, companions.length > 0 ? companions : undefined);
     setSubmitted(true);
   };
 
   if (submitted) {
+    const hasDeposit = paymentInfo?.deposit && paymentInfo.deposit > 0;
+    const depositPerPerson = paymentInfo?.deposit ?? 0;
+    const totalDeposit = depositPerPerson * totalPeople;
+    const totalPrice = (tripPrice ?? 0) * totalPeople;
+    const remainingAfterDeposit = totalPrice && totalDeposit ? totalPrice - totalDeposit : undefined;
+
     return (
       <div className="flex flex-col items-center gap-6 py-12 text-center">
-        <CheckCircle2 className="h-16 w-16 text-primary" />
-        <h3 className="font-heading text-2xl font-bold">Tack för din anmälan!</h3>
-        <p className="text-muted-foreground">Vi har tagit emot din anmälan. Du kommer att få en bekräftelse via e-post.</p>
+        {hasDeposit ? (
+          <>
+            <AlertTriangle className="h-16 w-16 text-yellow-500" />
+            <h3 className="font-heading text-2xl font-bold">Nästan klar!</h3>
+            <div className="rounded-lg border-2 border-yellow-400 bg-yellow-50 p-5 space-y-2 max-w-md">
+              <p className="font-heading font-semibold text-lg text-yellow-800">
+                {totalPeople > 1 ? 'Era anmälningar är inte giltiga' : 'Din anmälan är inte giltig'} förrän depositionen är betald
+              </p>
+              <p className="text-sm text-yellow-700">
+                {totalPeople > 1 ? (
+                  <>Betala depositionen på <span className="font-bold">{totalDeposit.toLocaleString('sv-SE')} kr</span> ({totalPeople} × {depositPerPerson.toLocaleString('sv-SE')} kr) för att bekräfta bokningen.</>
+                ) : (
+                  <>Betala depositionen på <span className="font-bold">{depositPerPerson.toLocaleString('sv-SE')} kr</span> för att bekräfta din bokning.</>
+                )}
+              </p>
+              {remainingAfterDeposit != null && remainingAfterDeposit > 0 && (
+                <p className="text-xs text-yellow-600">
+                  Resterande belopp ({remainingAfterDeposit.toLocaleString('sv-SE')} kr) betalas senare.
+                </p>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <CheckCircle2 className="h-16 w-16 text-primary" />
+            <h3 className="font-heading text-2xl font-bold">Tack för {totalPeople > 1 ? 'era anmälningar' : 'din anmälan'}!</h3>
+            <p className="text-muted-foreground">Vi har tagit emot {totalPeople > 1 ? `${totalPeople} anmälningar` : 'din anmälan'}.</p>
+          </>
+        )}
 
         {paymentInfo?.swish && (
           <div className="rounded-lg border bg-accent p-5 text-center space-y-2">
@@ -61,14 +129,21 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFor
             <p className="font-heading font-bold text-lg">Swish</p>
             <p className="text-2xl font-bold font-heading">{paymentInfo.swish.number}</p>
             <p className="text-sm text-muted-foreground">{paymentInfo.swish.name}</p>
-            {paymentInfo.swish.amount && <p className="text-sm font-medium">{paymentInfo.swish.amount} kr</p>}
+            <p className="text-sm font-medium">
+              {hasDeposit
+                ? `${totalDeposit.toLocaleString('sv-SE')} kr (deposition${totalPeople > 1 ? ` — ${totalPeople} pers` : ''})`
+                : paymentInfo.swish.amount
+                  ? `${(paymentInfo.swish.amount * totalPeople).toLocaleString('sv-SE')} kr${totalPeople > 1 ? ` (${totalPeople} pers)` : ''}`
+                  : ''}
+            </p>
           </div>
         )}
 
         {paymentInfo?.viva && (
           <a href={paymentInfo.viva.url} target="_blank" rel="noopener noreferrer">
             <Button size="lg" className="gap-2 font-heading font-semibold">
-              <CreditCard className="h-5 w-5" /> Betala med kort
+              <CreditCard className="h-5 w-5" />
+              {hasDeposit ? `Betala deposition (${totalDeposit.toLocaleString('sv-SE')} kr)` : 'Betala med kort'}
             </Button>
           </a>
         )}
@@ -84,8 +159,9 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFor
     );
   }
 
-  const renderField = (field: FormField) => {
-    const error = errors[field.label];
+  const renderField = (field: FormField, data: Record<string, any>, updateFn: (label: string, value: any) => void, errorPrefix = '') => {
+    const errorKey = errorPrefix + field.label;
+    const error = errors[errorKey];
     return (
       <div key={field.id} className="space-y-2">
         <Label className="text-sm font-medium">
@@ -103,19 +179,19 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFor
           <Input
             type={field.type === 'phone' ? 'tel' : field.type}
             placeholder={field.placeholder}
-            value={formData[field.label] || ''}
-            onChange={e => updateField(field.label, e.target.value)}
+            value={data[field.label] || ''}
+            onChange={e => updateFn(field.label, e.target.value)}
             className={error ? 'border-destructive' : ''}
           />
         ) : field.type === 'textarea' ? (
           <Textarea
             placeholder={field.placeholder}
-            value={formData[field.label] || ''}
-            onChange={e => updateField(field.label, e.target.value)}
+            value={data[field.label] || ''}
+            onChange={e => updateFn(field.label, e.target.value)}
             className={error ? 'border-destructive' : ''}
           />
         ) : field.type === 'select' && field.options ? (
-          <Select value={formData[field.label] || ''} onValueChange={v => updateField(field.label, v)}>
+          <Select value={data[field.label] || ''} onValueChange={v => updateFn(field.label, v)}>
             <SelectTrigger className={error ? 'border-destructive' : ''}>
               <SelectValue placeholder="Välj..." />
             </SelectTrigger>
@@ -129,16 +205,16 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFor
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Checkbox
-                checked={!!formData[field.label]}
-                onCheckedChange={v => updateField(field.label, v)}
+                checked={!!data[field.label]}
+                onCheckedChange={v => updateFn(field.label, v)}
               />
               <span className="text-sm">{field.label}</span>
             </div>
-            {formData[field.label] && field.conditionalFields?.map((cf, idx) => (
+            {data[field.label] && field.conditionalFields?.map((cf, idx) => (
               <div key={idx} className="ml-6 space-y-2">
                 <Label className="text-sm">{cf.label} {cf.required && <span className="text-primary">*</span>}</Label>
                 {cf.type === 'select' && cf.options ? (
-                  <Select value={formData[cf.label] || ''} onValueChange={v => updateField(cf.label, v)}>
+                  <Select value={data[cf.label] || ''} onValueChange={v => updateFn(cf.label, v)}>
                     <SelectTrigger><SelectValue placeholder="Välj..." /></SelectTrigger>
                     <SelectContent>
                       {cf.options.map(opt => (
@@ -149,8 +225,8 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFor
                 ) : (
                   <Input
                     placeholder={cf.placeholder}
-                    value={formData[cf.label] || ''}
-                    onChange={e => updateField(cf.label, e.target.value)}
+                    value={data[cf.label] || ''}
+                    onChange={e => updateFn(cf.label, e.target.value)}
                   />
                 )}
               </div>
@@ -164,20 +240,52 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo }: DynamicFor
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {fields.map(renderField)}
+      {fields.map(field => renderField(field, formData, updateField))}
+
+      {/* Companions */}
+      {companions.map((companion, idx) => (
+        <div key={idx} className="space-y-5 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-5">
+          <div className="flex items-center justify-between">
+            <p className="font-heading font-semibold text-sm">Medresenär {idx + 1}</p>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => removeCompanion(idx)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          {fields.map(field => renderField(
+            field,
+            companion,
+            (label, value) => updateCompanionField(idx, label, value),
+            `companion_${idx}_`
+          ))}
+        </div>
+      ))}
+
+      <Button type="button" variant="outline" className="w-full gap-2" onClick={addCompanion}>
+        <UserPlus className="h-4 w-4" /> Lägg till medresenär
+      </Button>
+
+      {totalPeople > 1 && tripPrice != null && tripPrice > 0 && (
+        <div className="rounded-lg bg-accent p-4 text-center space-y-1">
+          <p className="text-sm text-muted-foreground">Totalt för {totalPeople} resenärer</p>
+          <p className="font-heading text-xl font-bold">{(tripPrice * totalPeople).toLocaleString('sv-SE')} kr</p>
+          {paymentInfo?.deposit && paymentInfo.deposit > 0 && (
+            <p className="text-xs text-muted-foreground">Varav deposition: {(paymentInfo.deposit * totalPeople).toLocaleString('sv-SE')} kr</p>
+          )}
+        </div>
+      )}
 
       <div className="space-y-2 pt-4 border-t">
         <div className="flex items-start gap-2">
           <Checkbox checked={gdprAccepted} onCheckedChange={v => { setGdprAccepted(!!v); setErrors(prev => ({ ...prev, gdpr: '' })); }} className="mt-0.5" />
           <span className="text-sm text-muted-foreground">
-            Jag godkänner att WilleWorldWide lagrar och behandlar mina personuppgifter i enlighet med GDPR.
+            Jag godkänner att WilleWorldWide lagrar och behandlar {totalPeople > 1 ? 'våra' : 'mina'} personuppgifter i enlighet med GDPR.
           </span>
         </div>
         {errors['gdpr'] && <p className="text-xs text-destructive">{errors['gdpr']}</p>}
       </div>
 
       <Button type="submit" size="lg" className="w-full font-heading font-semibold" disabled={isSubmitting}>
-        {isSubmitting ? 'Skickar...' : 'Skicka anmälan'}
+        {isSubmitting ? 'Skickar...' : totalPeople > 1 ? `Skicka anmälan (${totalPeople} resenärer)` : 'Skicka anmälan'}
       </Button>
     </form>
   );

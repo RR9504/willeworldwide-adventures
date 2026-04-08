@@ -57,6 +57,7 @@ export interface Trip {
   payment_info?: {
     swish?: { number: string; name: string; amount?: number };
     viva?: { url: string; amount?: number };
+    deposit?: number;
     note?: string;
   };
   created_at: string;
