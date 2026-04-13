@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import DynamicForm from '@/components/trips/DynamicForm';
 import { useTrip, useRegistrations, useCreateRegistration, useCreateRegistrations } from '@/hooks/useTrips';
+import { sendMessage, buildRegistrationEmail } from '@/lib/messaging';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -60,6 +61,34 @@ const TripRegistrationPage = () => {
     toast.success('Länk kopierad!');
   };
 
+  const sendRegistrationEmails = async (allFormData: Record<string, any>[]) => {
+    const emailParams = {
+      firstName: '',
+      tripTitle: trip.title,
+      deposit: trip.payment_info?.deposit,
+      totalPrice: trip.price,
+      swish: trip.payment_info?.swish ? { number: trip.payment_info.swish.number, name: trip.payment_info.swish.name } : undefined,
+      vivaUrl: trip.payment_info?.viva?.url,
+      paymentNote: trip.payment_info?.note,
+    };
+
+    for (const formData of allFormData) {
+      const email = formData['E-post'];
+      const firstName = formData['Förnamn'] || '';
+      const lastName = formData['Efternamn'] || '';
+      if (!email) continue;
+
+      const { subject, message } = buildRegistrationEmail({ ...emailParams, firstName });
+      // Fire and forget — don't block the UI
+      sendMessage({
+        channel: 'email',
+        recipients: [{ name: `${firstName} ${lastName}`.trim(), email }],
+        subject,
+        message,
+      }).catch(() => {});
+    }
+  };
+
   const handleSubmit = async (data: Record<string, any>, companions?: Record<string, any>[]) => {
     try {
       const groupId = companions?.length ? crypto.randomUUID() : undefined;
@@ -72,9 +101,11 @@ const TripRegistrationPage = () => {
         ];
         await createRegistrations.mutateAsync(allRegs);
         toast.success(`${allRegs.length} anmälningar skickade!`);
+        sendRegistrationEmails([mainData, ...companions]);
       } else {
         await createRegistration.mutateAsync({ trip_id: trip.id, form_data: mainData });
         toast.success('Anmälan skickad!');
+        sendRegistrationEmails([mainData]);
       }
     } catch {
       toast.error('Något gick fel. Försök igen.');
