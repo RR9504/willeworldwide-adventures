@@ -23,7 +23,8 @@ const Dashboard = () => {
 
   const alerts = useMemo(() => {
     const unpaidRegs = registrations.filter(r => r.payment_status === 'unpaid');
-    const missingPresentation = registrations.filter(r => !r.presentation_data || Object.keys(r.presentation_data).length === 0);
+    const tripsWithPresentation = new Set(trips.filter(t => t.presentation_fields.length > 0).map(t => t.id));
+    const missingPresentation = registrations.filter(r => tripsWithPresentation.has(r.trip_id) && (!r.presentation_data || Object.keys(r.presentation_data).length === 0));
     const lowSpotsTrips = trips
       .filter(t => t.status === 'published')
       .filter(t => {
@@ -198,7 +199,8 @@ const Dashboard = () => {
                 const regs = registrations.filter(r => r.trip_id === trip.id);
                 const regCount = regs.length;
                 const unpaidCount = regs.filter(r => r.payment_status === 'unpaid').length;
-                const missingPres = regs.filter(r => !r.presentation_data || Object.keys(r.presentation_data).length === 0).length;
+                const hasPresentationFields = trip.presentation_fields.length > 0;
+                const missingPres = hasPresentationFields ? regs.filter(r => !r.presentation_data || Object.keys(r.presentation_data).length === 0).length : 0;
                 return (
                   <Link
                     key={trip.id}
