@@ -9,7 +9,7 @@ import { useTrips, useAllRegistrations } from '@/hooks/useTrips';
 import { PaymentStatus } from '@/types/trip';
 
 const paymentLabels: Record<PaymentStatus, string> = {
-  unpaid: 'Ej betald', paid: 'Betald', partial: 'Delbetalad', refunded: 'Återbetald',
+  unpaid: 'Ej betald', paid: 'Betald', partial: 'Deposition betald', refunded: 'Återbetald',
 };
 const paymentColors: Record<PaymentStatus, string> = {
   unpaid: 'bg-destructive/10 text-destructive',

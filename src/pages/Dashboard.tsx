@@ -68,7 +68,7 @@ const Dashboard = () => {
         r.form_data['E-post'] || '',
         r.form_data['Telefon'] || '',
         trip?.title || '',
-        r.payment_status === 'paid' ? 'Betald' : r.payment_status === 'partial' ? 'Delbetalad' : r.payment_status === 'refunded' ? 'Återbetald' : 'Ej betald',
+        r.payment_status === 'paid' ? 'Betald' : r.payment_status === 'partial' ? 'Deposition betald' : r.payment_status === 'refunded' ? 'Återbetald' : 'Ej betald',
       ];
     });
     const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
