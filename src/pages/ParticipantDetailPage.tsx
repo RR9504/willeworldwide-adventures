@@ -114,7 +114,7 @@ const ParticipantDetailPage = () => {
                 {reg.payment_note && (<div><span className="text-sm text-muted-foreground">Anteckning</span><p className="mt-1 text-sm">{reg.payment_note}</p></div>)}
 
                 {/* Order confirmation */}
-                {reg.payment_status === 'paid' && (
+                {(reg.payment_status === 'paid' || reg.payment_status === 'partial') && (
                   <div className="border-t pt-3 space-y-2">
                     <div className="flex items-center gap-2 text-green-600">
                       <CheckCircle2 className="h-4 w-4" />
