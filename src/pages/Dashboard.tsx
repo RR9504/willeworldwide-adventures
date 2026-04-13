@@ -21,9 +21,10 @@ const Dashboard = () => {
 
   const loading = tripsLoading || regsLoading;
 
+  const tripsWithPresentation = useMemo(() => new Set(trips.filter(t => t.presentation_fields.length > 0).map(t => t.id)), [trips]);
+
   const alerts = useMemo(() => {
     const unpaidRegs = registrations.filter(r => r.payment_status === 'unpaid');
-    const tripsWithPresentation = new Set(trips.filter(t => t.presentation_fields.length > 0).map(t => t.id));
     const missingPresentation = registrations.filter(r => tripsWithPresentation.has(r.trip_id) && (!r.presentation_data || Object.keys(r.presentation_data).length === 0));
     const lowSpotsTrips = trips
       .filter(t => t.status === 'published')
@@ -130,20 +131,22 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card
-            className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.missingPresentation.length > 0 ? 'border-yellow-400/30' : ''}`}
-            onClick={() => navigate('/dashboard/alerts/missing-presentation')}
-          >
-            <CardContent className="flex items-center gap-4 p-5">
-              <div className={`rounded-lg p-2.5 ${alerts.missingPresentation.length > 0 ? 'bg-yellow-100' : 'bg-accent'}`}>
-                <FileText className={`h-5 w-5 ${alerts.missingPresentation.length > 0 ? 'text-yellow-700' : 'text-primary'}`} />
-              </div>
-              <div>
-                <p className="text-2xl font-bold font-heading">{alerts.missingPresentation.length}</p>
-                <p className="text-sm text-muted-foreground">Saknar "Lär känna"-svar</p>
-              </div>
-            </CardContent>
-          </Card>
+          {tripsWithPresentation.size > 0 && (
+            <Card
+              className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.missingPresentation.length > 0 ? 'border-yellow-400/30' : ''}`}
+              onClick={() => navigate('/dashboard/alerts/missing-presentation')}
+            >
+              <CardContent className="flex items-center gap-4 p-5">
+                <div className={`rounded-lg p-2.5 ${alerts.missingPresentation.length > 0 ? 'bg-yellow-100' : 'bg-accent'}`}>
+                  <FileText className={`h-5 w-5 ${alerts.missingPresentation.length > 0 ? 'text-yellow-700' : 'text-primary'}`} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold font-heading">{alerts.missingPresentation.length}</p>
+                  <p className="text-sm text-muted-foreground">Saknar "Lär känna"-svar</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card
             className={`cursor-pointer transition-colors hover:bg-muted/50 ${alerts.lowSpotsTrips.length > 0 ? 'border-orange-400/30' : ''}`}
