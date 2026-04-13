@@ -1,10 +1,11 @@
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2, Receipt, Printer, CheckCircle2, Send } from 'lucide-react';
+import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2, Receipt, Printer, CheckCircle2, Send, Mail } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/layout/Header';
 import { useTrip, useRegistrations, useUpdateRegistration } from '@/hooks/useTrips';
 import { Button } from '@/components/ui/button';
 import { PaymentStatus } from '@/types/trip';
+import { sendMessage, buildOrderConfirmationEmail } from '@/lib/messaging';
 import { toast } from 'sonner';
 
 const paymentLabels: Record<PaymentStatus, string> = {
@@ -123,19 +124,28 @@ const ParticipantDetailPage = () => {
                       size="sm"
                       variant="outline"
                       className="gap-2 w-full"
-                      onClick={() => {
+                      onClick={async () => {
                         const email = reg.form_data['E-post'];
+                        const phone = reg.form_data['Telefon'];
                         const firstName = reg.form_data['Förnamn'] || '';
-                        // TODO: Wire to actual email/SMS sending (Resend/46elks)
-                        console.log('Send order confirmation to:', { email, firstName, trip: trip.title });
-                        toast.success(
-                          email
-                            ? `Orderbekräftelse skickas till ${email}`
-                            : 'Orderbekräftelse skickad'
-                        );
+                        const fullName = `${firstName} ${reg.form_data['Efternamn'] || ''}`.trim();
+                        const { subject, message } = buildOrderConfirmationEmail(firstName, trip.title);
+
+                        const result = await sendMessage({
+                          channel: email ? 'email' : 'sms',
+                          recipients: [{ name: fullName, email, phone }],
+                          subject,
+                          message,
+                        });
+
+                        if (result.success) {
+                          toast.success(`Orderbekräftelse skickad till ${email || phone}`);
+                        } else {
+                          toast.error('Kunde inte skicka orderbekräftelse');
+                        }
                       }}
                     >
-                      <Send className="h-4 w-4" /> Skicka orderbekräftelse
+                      <Mail className="h-4 w-4" /> Skicka orderbekräftelse
                     </Button>
                   </div>
                 )}

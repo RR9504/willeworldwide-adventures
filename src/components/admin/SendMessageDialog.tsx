@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Registration } from '@/types/trip';
+import { sendMessage } from '@/lib/messaging';
 import { toast } from 'sonner';
 
 type Channel = 'email' | 'sms' | 'both';
@@ -45,30 +46,33 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle }: 
 
     setSending(true);
 
-    // TODO: Wire up actual sending via API (46elks for SMS, Resend for email)
-    console.log('Sending message:', {
-      channel,
-      subject,
-      message,
-      files: files.map(f => f.name),
-      recipients: recipients.map(r => ({
-        name: `${r.form_data['Förnamn']} ${r.form_data['Efternamn']}`,
-        email: r.form_data['E-post'],
-        phone: r.form_data['Telefon'],
-      })),
-    });
+    try {
+      const result = await sendMessage({
+        channel,
+        subject,
+        message,
+        recipients: recipients.map(r => ({
+          name: `${r.form_data['Förnamn'] || ''} ${r.form_data['Efternamn'] || ''}`.trim(),
+          email: r.form_data['E-post'] || undefined,
+          phone: r.form_data['Telefon'] || undefined,
+        })),
+      });
 
-    // Simulate send delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    setSending(false);
-    setOpen(false);
-    setMessage('');
-    setSubject('');
-    setFiles([]);
-
-    const channelLabel = channel === 'email' ? 'e-post' : channel === 'sms' ? 'SMS' : 'e-post + SMS';
-    toast.success(`${channelLabel} skickat till ${recipients.length} mottagare`);
+      if (result.success) {
+        const channelLabel = channel === 'email' ? 'E-post' : channel === 'sms' ? 'SMS' : 'E-post + SMS';
+        toast.success(`${channelLabel} skickat till ${recipients.length} mottagare`);
+        setOpen(false);
+        setMessage('');
+        setSubject('');
+        setFiles([]);
+      } else {
+        toast.error(result.error || 'Kunde inte skicka meddelandet');
+      }
+    } catch {
+      toast.error('Något gick fel vid skickandet');
+    } finally {
+      setSending(false);
+    }
   };
 
   const filterDescription = filterLabel && filterValue
