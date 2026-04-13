@@ -180,13 +180,25 @@ const ParticipantDetailPage = () => {
                   </div>
                   {trip.payment_info?.deposit && trip.payment_info.deposit > 0 && (
                     <>
-                      <div className="flex items-center justify-between text-green-600">
-                        <span className="text-sm">Deposition (betald)</span>
-                        <span className="text-sm font-medium">−{trip.payment_info.deposit.toLocaleString('sv-SE')} {trip.currency}</span>
-                      </div>
+                      {(reg.payment_status === 'paid' || reg.payment_status === 'partial') ? (
+                        <div className="flex items-center justify-between text-green-600">
+                          <span className="text-sm">Deposition (betald)</span>
+                          <span className="text-sm font-medium">−{trip.payment_info.deposit.toLocaleString('sv-SE')} {trip.currency}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between text-yellow-600">
+                          <span className="text-sm">Deposition (ej betald)</span>
+                          <span className="text-sm font-medium">{trip.payment_info.deposit.toLocaleString('sv-SE')} {trip.currency}</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between border-t pt-2">
                         <span className="text-sm font-semibold">Att betala</span>
-                        <span className="text-sm font-bold">{(trip.price - trip.payment_info.deposit).toLocaleString('sv-SE')} {trip.currency}</span>
+                        <span className="text-sm font-bold">
+                          {(reg.payment_status === 'paid' || reg.payment_status === 'partial')
+                            ? `${(trip.price - trip.payment_info.deposit).toLocaleString('sv-SE')} ${trip.currency}`
+                            : `${trip.price.toLocaleString('sv-SE')} ${trip.currency}`
+                          }
+                        </span>
                       </div>
                     </>
                   )}
