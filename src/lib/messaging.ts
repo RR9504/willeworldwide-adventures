@@ -93,8 +93,13 @@ export function buildRegistrationEmail(params: RegistrationEmailParams): { subje
       message += `Betala med kort: ${vivaUrl}\n\n`;
     }
 
-    if (totalSek > deposit) {
-      message += `Resterande belopp (${(totalSek - deposit).toLocaleString('sv-SE')} SEK) betalas senare.\n\n`;
+    if (totalSek > deposit || otherCurrencies.length > 0) {
+      let remaining = `Resterande belopp (`;
+      const parts: string[] = [];
+      if (totalSek > deposit) parts.push(`${(totalSek - deposit).toLocaleString('sv-SE')} SEK`);
+      otherCurrencies.forEach(([cur, amount]) => parts.push(`${amount.toLocaleString('sv-SE')} ${cur}`));
+      remaining += parts.join(' + ') + `) betalas senare.\n\n`;
+      message += remaining;
     }
 
     message += `Vi bekräftar din bokning när depositionen är mottagen.`;
