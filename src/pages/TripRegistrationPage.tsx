@@ -64,24 +64,53 @@ const TripRegistrationPage = () => {
     toast.success('Länk kopierad!');
   };
 
-  const sendRegistrationEmails = async (allFormData: Record<string, any>[]) => {
-    const emailParams = {
-      firstName: '',
-      tripTitle: trip.title,
-      deposit: trip.payment_info?.deposit,
-      totalPrice: trip.price,
-      swish: trip.payment_info?.swish ? { number: trip.payment_info.swish.number, name: trip.payment_info.swish.name } : undefined,
-      vivaUrl: trip.payment_info?.viva?.url,
-      paymentNote: trip.payment_info?.note,
-    };
+  const calcExtraCosts = (data: Record<string, any>): Record<string, number> => {
+    const totals: Record<string, number> = {};
+    trip.form_fields.forEach(field => {
+      if (field.type === 'checkbox' && data[field.label] && field.priceModifier) {
+        const cur = field.priceModifierCurrency || 'SEK';
+        totals[cur] = (totals[cur] || 0) + field.priceModifier;
+      }
+      if (field.type === 'select' && field.options && data[field.label]) {
+        const selected = field.options.find(o => o.value === data[field.label]);
+        if (selected?.priceModifier) {
+          const cur = selected.priceModifierCurrency || 'SEK';
+          totals[cur] = (totals[cur] || 0) + selected.priceModifier;
+        }
+      }
+      if (data[field.label] && field.conditionalFields) {
+        field.conditionalFields.forEach(cf => {
+          if (cf.options && data[cf.label]) {
+            const selected = cf.options.find(o => o.value === data[cf.label]);
+            if (selected?.priceModifier) {
+              const cur = selected.priceModifierCurrency || 'SEK';
+              totals[cur] = (totals[cur] || 0) + selected.priceModifier;
+            }
+          }
+        });
+      }
+    });
+    return totals;
+  };
 
+  const sendRegistrationEmails = async (allFormData: Record<string, any>[]) => {
     for (const formData of allFormData) {
       const email = formData['E-post'];
       const firstName = formData['Förnamn'] || '';
       const lastName = formData['Efternamn'] || '';
       if (!email) continue;
 
-      const { subject, message } = buildRegistrationEmail({ ...emailParams, firstName });
+      const extraCosts = calcExtraCosts(formData);
+      const { subject, message } = buildRegistrationEmail({
+        firstName,
+        tripTitle: trip.title,
+        deposit: trip.payment_info?.deposit,
+        totalPrice: trip.price,
+        extraCosts,
+        swish: trip.payment_info?.swish ? { number: trip.payment_info.swish.number, name: trip.payment_info.swish.name } : undefined,
+        vivaUrl: trip.payment_info?.viva?.url,
+        paymentNote: trip.payment_info?.note,
+      });
       // Fire and forget — don't block the UI
       sendMessage({
         channel: 'email',

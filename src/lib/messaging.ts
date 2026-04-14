@@ -40,30 +40,39 @@ interface RegistrationEmailParams {
   tripTitle: string;
   deposit?: number;
   totalPrice?: number;
+  extraCosts?: Record<string, number>;
   swish?: { number: string; name: string };
   vivaUrl?: string;
   paymentNote?: string;
 }
 
 export function buildRegistrationEmail(params: RegistrationEmailParams): { subject: string; message: string } {
-  const { firstName, tripTitle, deposit, totalPrice, swish, vivaUrl, paymentNote } = params;
+  const { firstName, tripTitle, deposit, totalPrice, extraCosts, swish, vivaUrl, paymentNote } = params;
   const hasDeposit = deposit && deposit > 0;
+  const otherCurrencies = Object.entries(extraCosts || {}).filter(([k, v]) => k !== 'SEK' && v > 0);
+  const sekExtra = extraCosts?.['SEK'] || 0;
+  const totalSek = (totalPrice || 0) + sekExtra;
 
-  let message = `Hej ${firstName}!\n\nVi har tagit emot din anmälan till ${tripTitle}.\n\n`;
+  let priceStr = `${totalSek.toLocaleString('sv-SE')} SEK`;
+  if (otherCurrencies.length > 0) {
+    priceStr += otherCurrencies.map(([cur, amount]) => ` + ${amount.toLocaleString('sv-SE')} ${cur}`).join('');
+  }
+
+  let message = `Hej ${firstName}!\n\nVi har tagit emot din anmälan till ${tripTitle}.\n\nDitt pris: ${priceStr}\n\n`;
 
   if (hasDeposit) {
-    message += `OBS: Din anmälan är inte bekräftad ännu. För att säkra din plats behöver du betala en deposition på ${deposit.toLocaleString('sv-SE')} kr.\n\n`;
+    message += `OBS: Din anmälan är inte bekräftad ännu. För att säkra din plats behöver du betala en deposition på ${deposit.toLocaleString('sv-SE')} SEK.\n\n`;
 
     if (swish) {
-      message += `Swish: ${swish.number}\nMottagare: ${swish.name}\nBelopp: ${deposit.toLocaleString('sv-SE')} kr\n\n`;
+      message += `Swish: ${swish.number}\nMottagare: ${swish.name}\nBelopp: ${deposit.toLocaleString('sv-SE')} SEK\n\n`;
     }
 
     if (vivaUrl) {
       message += `Betala med kort: ${vivaUrl}\n\n`;
     }
 
-    if (totalPrice && totalPrice > deposit) {
-      message += `Resterande belopp (${(totalPrice - deposit).toLocaleString('sv-SE')} kr) betalas senare.\n\n`;
+    if (totalSek > deposit) {
+      message += `Resterande belopp (${(totalSek - deposit).toLocaleString('sv-SE')} SEK) betalas senare.\n\n`;
     }
 
     message += `Vi bekräftar din bokning när depositionen är mottagen.`;
