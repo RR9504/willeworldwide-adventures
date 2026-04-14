@@ -7,6 +7,9 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Trash2, Plus, GripVertical, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const fieldTypeLabels: Record<FormFieldType, string> = {
   text: 'Text',
@@ -24,8 +27,26 @@ interface FormFieldEditorProps {
   dragHandleProps?: Record<string, any>;
 }
 
+const SortableOption = ({ id, children }: { id: string; children: (handleProps: Record<string, any>) => React.ReactNode }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  return <div ref={setNodeRef} style={style} {...attributes}>{children(listeners ?? {})}</div>;
+};
+
 const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFieldEditorProps) => {
   const [expanded, setExpanded] = useState(true);
+  const optionSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  const handleOptionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const options = field.options || [];
+    const oldIndex = options.findIndex((_, i) => `opt-${i}` === active.id);
+    const newIndex = options.findIndex((_, i) => `opt-${i}` === over.id);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      update({ options: arrayMove(options, oldIndex, newIndex) });
+    }
+  };
 
   const update = (partial: Partial<FormField>) => {
     onChange({ ...field, ...partial });
@@ -197,37 +218,48 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
             {field.type === 'select' && (
               <div className="space-y-2">
                 <Label className="text-xs font-semibold">Alternativ</Label>
-                {(field.options || []).map((opt, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <Input
-                      value={opt.label}
-                      onChange={e => {
-                        const label = e.target.value;
-                        const value = label.toLowerCase().replace(/[^a-zåäö0-9]+/g, '-').replace(/-+$/, '');
-                        updateOption(idx, { label, value });
-                      }}
-                      placeholder={`Alternativ ${idx + 1}`}
-                      className="flex-1"
-                    />
-                    <Input
-                      type="number"
-                      value={opt.priceModifier ?? ''}
-                      onChange={e => updateOption(idx, { priceModifier: e.target.value ? Number(e.target.value) : undefined })}
-                      placeholder="± pris"
-                      className="w-20"
-                    />
-                    <Select value={opt.priceModifierCurrency || 'SEK'} onValueChange={v => updateOption(idx, { priceModifierCurrency: v })}>
-                      <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="SEK">SEK</SelectItem>
-                        <SelectItem value="EUR">EUR</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeOption(idx)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+                <DndContext sensors={optionSensors} collisionDetection={closestCenter} onDragEnd={handleOptionDragEnd}>
+                  <SortableContext items={(field.options || []).map((_, i) => `opt-${i}`)} strategy={verticalListSortingStrategy}>
+                    {(field.options || []).map((opt, idx) => (
+                      <SortableOption key={`opt-${idx}`} id={`opt-${idx}`}>
+                        {(handleProps) => (
+                          <div className="flex items-center gap-2">
+                            <div {...handleProps} className="cursor-grab text-muted-foreground hover:text-foreground">
+                              <GripVertical className="h-4 w-4" />
+                            </div>
+                            <Input
+                              value={opt.label}
+                              onChange={e => {
+                                const label = e.target.value;
+                                const value = label.toLowerCase().replace(/[^a-zåäö0-9]+/g, '-').replace(/-+$/, '');
+                                updateOption(idx, { label, value });
+                              }}
+                              placeholder={`Alternativ ${idx + 1}`}
+                              className="flex-1"
+                            />
+                            <Input
+                              type="number"
+                              value={opt.priceModifier ?? ''}
+                              onChange={e => updateOption(idx, { priceModifier: e.target.value ? Number(e.target.value) : undefined })}
+                              placeholder="± pris"
+                              className="w-20"
+                            />
+                            <Select value={opt.priceModifierCurrency || 'SEK'} onValueChange={v => updateOption(idx, { priceModifierCurrency: v })}>
+                              <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="SEK">SEK</SelectItem>
+                                <SelectItem value="EUR">EUR</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeOption(idx)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                      </SortableOption>
+                    ))}
+                  </SortableContext>
+                </DndContext>
                 <Button type="button" variant="outline" size="sm" onClick={addOption} className="gap-1">
                   <Plus className="h-3 w-3" /> Lägg till alternativ
                 </Button>
