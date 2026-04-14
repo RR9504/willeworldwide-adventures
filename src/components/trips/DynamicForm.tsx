@@ -8,9 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, CreditCard, Smartphone, AlertTriangle, UserPlus, X } from 'lucide-react';
 
+export interface SubmitMeta {
+  extraCosts: Record<string, number>;
+  dynamicTotal: number;
+  otherCurrencies: [string, number][];
+}
+
 interface DynamicFormProps {
   fields: FormField[];
-  onSubmit: (data: Record<string, any>, companions?: Record<string, any>[]) => void;
+  onSubmit: (data: Record<string, any>, companions?: Record<string, any>[], meta?: SubmitMeta) => void;
   isSubmitting?: boolean;
   paymentInfo?: Trip['payment_info'];
   tripPrice?: number;
@@ -123,7 +129,12 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    onSubmit(formData, companions.length > 0 ? companions : undefined);
+    const meta: SubmitMeta = {
+      extraCosts: allModifiers,
+      dynamicTotal,
+      otherCurrencies,
+    };
+    onSubmit(formData, companions.length > 0 ? companions : undefined, meta);
     setSubmitted(true);
   };
 
@@ -131,8 +142,16 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
     const hasDeposit = paymentInfo?.deposit && paymentInfo.deposit > 0;
     const depositPerPerson = paymentInfo?.deposit ?? 0;
     const totalDeposit = depositPerPerson * totalPeople;
-    const totalPrice = (tripPrice ?? 0) * totalPeople;
-    const remainingAfterDeposit = totalPrice && totalDeposit ? totalPrice - totalDeposit : undefined;
+    const remainingAfterDeposit = dynamicTotal && totalDeposit ? dynamicTotal - totalDeposit : undefined;
+
+    const priceDisplay = (
+      <span>
+        {dynamicTotal.toLocaleString('sv-SE')} SEK
+        {otherCurrencies.map(([cur, amount]) => (
+          <span key={cur}> + {amount.toLocaleString('sv-SE')} {cur}</span>
+        ))}
+      </span>
+    );
 
     return (
       <div className="flex flex-col items-center gap-6 py-12 text-center">
@@ -145,15 +164,18 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
                 {totalPeople > 1 ? 'Era anmälningar är inte giltiga' : 'Din anmälan är inte giltig'} förrän depositionen är betald
               </p>
               <p className="text-sm text-yellow-700">
+                Ditt pris: <span className="font-bold">{priceDisplay}</span>
+              </p>
+              <p className="text-sm text-yellow-700">
                 {totalPeople > 1 ? (
-                  <>Betala depositionen på <span className="font-bold">{totalDeposit.toLocaleString('sv-SE')} kr</span> ({totalPeople} × {depositPerPerson.toLocaleString('sv-SE')} kr) för att bekräfta bokningen.</>
+                  <>Betala depositionen på <span className="font-bold">{totalDeposit.toLocaleString('sv-SE')} SEK</span> ({totalPeople} × {depositPerPerson.toLocaleString('sv-SE')} SEK) för att bekräfta bokningen.</>
                 ) : (
-                  <>Betala depositionen på <span className="font-bold">{depositPerPerson.toLocaleString('sv-SE')} kr</span> för att bekräfta din bokning.</>
+                  <>Betala depositionen på <span className="font-bold">{depositPerPerson.toLocaleString('sv-SE')} SEK</span> för att bekräfta din bokning.</>
                 )}
               </p>
               {remainingAfterDeposit != null && remainingAfterDeposit > 0 && (
                 <p className="text-xs text-yellow-600">
-                  Resterande belopp ({remainingAfterDeposit.toLocaleString('sv-SE')} kr) betalas senare.
+                  Resterande belopp ({remainingAfterDeposit.toLocaleString('sv-SE')} SEK) betalas senare.
                 </p>
               )}
             </div>
@@ -174,9 +196,9 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
             <p className="text-sm text-muted-foreground">{paymentInfo.swish.name}</p>
             <p className="text-sm font-medium">
               {hasDeposit
-                ? `${totalDeposit.toLocaleString('sv-SE')} kr (deposition${totalPeople > 1 ? ` — ${totalPeople} pers` : ''})`
+                ? `${totalDeposit.toLocaleString('sv-SE')} SEK (deposition${totalPeople > 1 ? ` — ${totalPeople} pers` : ''})`
                 : paymentInfo.swish.amount
-                  ? `${(paymentInfo.swish.amount * totalPeople).toLocaleString('sv-SE')} kr${totalPeople > 1 ? ` (${totalPeople} pers)` : ''}`
+                  ? `${(paymentInfo.swish.amount * totalPeople).toLocaleString('sv-SE')} SEK${totalPeople > 1 ? ` (${totalPeople} pers)` : ''}`
                   : ''}
             </p>
           </div>

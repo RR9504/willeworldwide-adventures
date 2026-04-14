@@ -3,7 +3,7 @@ import { CalendarDays, MapPin, Users, Share2, Loader2, Clock } from 'lucide-reac
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import DynamicForm from '@/components/trips/DynamicForm';
+import DynamicForm, { SubmitMeta } from '@/components/trips/DynamicForm';
 import { useTrip, useRegistrations, useCreateRegistration, useCreateRegistrations } from '@/hooks/useTrips';
 import { sendMessage, buildRegistrationEmail } from '@/lib/messaging';
 import { motion } from 'framer-motion';
@@ -64,43 +64,13 @@ const TripRegistrationPage = () => {
     toast.success('Länk kopierad!');
   };
 
-  const calcExtraCosts = (data: Record<string, any>): Record<string, number> => {
-    const totals: Record<string, number> = {};
-    trip.form_fields.forEach(field => {
-      if (field.type === 'checkbox' && data[field.label] && field.priceModifier) {
-        const cur = field.priceModifierCurrency || 'SEK';
-        totals[cur] = (totals[cur] || 0) + field.priceModifier;
-      }
-      if (field.type === 'select' && field.options && data[field.label]) {
-        const selected = field.options.find(o => o.value === data[field.label]);
-        if (selected?.priceModifier) {
-          const cur = selected.priceModifierCurrency || 'SEK';
-          totals[cur] = (totals[cur] || 0) + selected.priceModifier;
-        }
-      }
-      if (data[field.label] && field.conditionalFields) {
-        field.conditionalFields.forEach(cf => {
-          if (cf.options && data[cf.label]) {
-            const selected = cf.options.find(o => o.value === data[cf.label]);
-            if (selected?.priceModifier) {
-              const cur = selected.priceModifierCurrency || 'SEK';
-              totals[cur] = (totals[cur] || 0) + selected.priceModifier;
-            }
-          }
-        });
-      }
-    });
-    return totals;
-  };
-
-  const sendRegistrationEmails = async (allFormData: Record<string, any>[]) => {
+  const sendRegistrationEmails = async (allFormData: Record<string, any>[], extraCosts: Record<string, number>) => {
     for (const formData of allFormData) {
       const email = formData['E-post'];
       const firstName = formData['Förnamn'] || '';
       const lastName = formData['Efternamn'] || '';
       if (!email) continue;
 
-      const extraCosts = calcExtraCosts(formData);
       const { subject, message } = buildRegistrationEmail({
         firstName,
         tripTitle: trip.title,
@@ -121,10 +91,11 @@ const TripRegistrationPage = () => {
     }
   };
 
-  const handleSubmit = async (data: Record<string, any>, companions?: Record<string, any>[]) => {
+  const handleSubmit = async (data: Record<string, any>, companions?: Record<string, any>[], meta?: SubmitMeta) => {
     try {
       const groupId = companions?.length ? crypto.randomUUID() : undefined;
       const mainData = groupId ? { ...data, _group_id: groupId } : data;
+      const extraCosts = meta?.extraCosts || {};
 
       if (companions && companions.length > 0) {
         const allRegs = [
@@ -133,11 +104,11 @@ const TripRegistrationPage = () => {
         ];
         await createRegistrations.mutateAsync(allRegs);
         toast.success(`${allRegs.length} anmälningar skickade!`);
-        sendRegistrationEmails([mainData, ...companions]);
+        sendRegistrationEmails([mainData, ...companions], extraCosts);
       } else {
         await createRegistration.mutateAsync({ trip_id: trip.id, form_data: mainData });
         toast.success('Anmälan skickad!');
-        sendRegistrationEmails([mainData]);
+        sendRegistrationEmails([mainData], extraCosts);
       }
     } catch {
       toast.error('Något gick fel. Försök igen.');
