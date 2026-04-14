@@ -28,10 +28,32 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
   return { success: true };
 }
 
-export function buildOrderConfirmationEmail(firstName: string, tripTitle: string): { subject: string; message: string } {
+export function buildOrderConfirmationEmail(
+  firstName: string,
+  tripTitle: string,
+  options?: { deposit?: number; totalPrice?: number; isFullyPaid?: boolean },
+): { subject: string; message: string } {
+  const { deposit, totalPrice, isFullyPaid } = options || {};
+  const hasDeposit = deposit && deposit > 0;
+
+  let message = `Hej ${firstName}!\n\n`;
+
+  if (isFullyPaid) {
+    message += `Tack för din betalning av ${tripTitle}. Din resa är nu helt betald och din plats är bekräftad.`;
+  } else if (hasDeposit) {
+    message += `Tack! Vi har mottagit din deposition på ${deposit.toLocaleString('sv-SE')} SEK för ${tripTitle}. Din plats är nu bekräftad.`;
+    if (totalPrice && totalPrice > deposit) {
+      message += `\n\nResterande belopp (${(totalPrice - deposit).toLocaleString('sv-SE')} SEK) betalas senare. Vi återkommer med information om detta.`;
+    }
+  } else {
+    message += `Tack för din bokning av ${tripTitle}. Vi har mottagit din betalning och din plats är nu bekräftad.`;
+  }
+
+  message += `\n\nVi återkommer med mer information inför resan.\n\nVarma hälsningar,\nWilleWorldWide`;
+
   return {
-    subject: `Bokningsbekräftelse — ${tripTitle}`,
-    message: `Hej ${firstName}!\n\nTack för din bokning av ${tripTitle}. Vi har mottagit din betalning och din plats är nu bekräftad.\n\nVi återkommer med mer information inför resan.\n\nVarma hälsningar,\nWilleWorldWide`,
+    subject: isFullyPaid ? `Betalning mottagen — ${tripTitle}` : `Bokningsbekräftelse — ${tripTitle}`,
+    message,
   };
 }
 

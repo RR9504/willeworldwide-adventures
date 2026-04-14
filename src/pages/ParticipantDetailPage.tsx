@@ -129,7 +129,11 @@ const ParticipantDetailPage = () => {
                         const phone = reg.form_data['Telefon'];
                         const firstName = reg.form_data['Förnamn'] || '';
                         const fullName = `${firstName} ${reg.form_data['Efternamn'] || ''}`.trim();
-                        const { subject, message } = buildOrderConfirmationEmail(firstName, trip.title);
+                        const { subject, message } = buildOrderConfirmationEmail(firstName, trip.title, {
+                          deposit: trip.payment_info?.deposit,
+                          totalPrice: trip.price,
+                          isFullyPaid: reg.payment_status === 'paid',
+                        });
 
                         const result = await sendMessage({
                           channel: email ? 'email' : 'sms',
