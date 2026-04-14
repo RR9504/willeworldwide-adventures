@@ -173,9 +173,12 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
                   <>Betala depositionen på <span className="font-bold">{depositPerPerson.toLocaleString('sv-SE')} SEK</span> för att bekräfta din bokning.</>
                 )}
               </p>
-              {remainingAfterDeposit != null && remainingAfterDeposit > 0 && (
+              {(remainingAfterDeposit != null && remainingAfterDeposit > 0 || otherCurrencies.length > 0) && (
                 <p className="text-xs text-yellow-600">
-                  Resterande belopp ({remainingAfterDeposit.toLocaleString('sv-SE')} SEK) betalas senare.
+                  Resterande belopp ({[
+                    remainingAfterDeposit && remainingAfterDeposit > 0 ? `${remainingAfterDeposit.toLocaleString('sv-SE')} SEK` : null,
+                    ...otherCurrencies.map(([cur, amount]) => `${amount.toLocaleString('sv-SE')} ${cur}`),
+                  ].filter(Boolean).join(' + ')}) betalas senare.
                 </p>
               )}
             </div>
