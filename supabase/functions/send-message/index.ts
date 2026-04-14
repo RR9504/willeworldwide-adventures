@@ -31,7 +31,7 @@ async function sendSMS(to: string, message: string): Promise<{ ok: boolean; erro
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams({
-      from: "WilleWW",
+      from: "WOW",
       to,
       message,
     }),
