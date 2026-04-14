@@ -29,7 +29,7 @@ const LoginPage = () => {
         <CardHeader className="text-center">
           <img
             src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/short-logo-wille-worldwide-vittext-rgb.png?media=1766889486"
-            alt="WilleWorldWide"
+            alt="Wille Worldwide"
             className="mx-auto mb-4 h-16 w-auto rounded bg-sidebar p-3"
           />
           <CardTitle className="flex items-center justify-center gap-2 text-lg">

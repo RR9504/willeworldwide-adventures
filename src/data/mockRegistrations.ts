@@ -45,7 +45,7 @@ const aboutMe = [
   'Jobbar som {job} men drömmer om att vara på semester året runt.',
   'Sportfantast som älskar allt från skidåkning till padel.',
   '{job} från {city}. Gillar god mat, bra musik och äventyr.',
-  'Har rest mycket i Europa men detta blir första gången med WilleWorldWide!',
+  'Har rest mycket i Europa men detta blir första gången med Wille Worldwide!',
   'Bor ensam i {city} med katten. Söker nya vänner och äventyr!',
 ];
 
@@ -60,7 +60,7 @@ function generatePresentationData(nameIdx: number): Record<string, string> | und
     'Varifrån kommer du?': city,
     'Hur gammal är du?': String(25 + (nameIdx * 3) % 40),
     'Vad jobbar du med?': job,
-    'Har du rest med WilleWorldWide förut?': nameIdx % 3 === 0 ? 'Ja, skidresa 2024!' : 'Nej, första gången!',
+    'Har du rest med Wille Worldwide förut?': nameIdx % 3 === 0 ? 'Ja, skidresa 2024!' : 'Nej, första gången!',
     'Vad ser du mest fram emot på resan?': pick(lookingForward),
     'Hur skulle dina vänner beskriva dig?': pick(friendDescribe),
     'Vad är din skidvana? (skidresor)': pick(skiLevels),

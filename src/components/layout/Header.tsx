@@ -18,7 +18,7 @@ const Header = () => {
         <Link to="/dashboard" className="flex items-center gap-2.5">
           <img
             src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/short-logo-wille-worldwide-vittext-rgb.png?media=1766889486"
-            alt="WilleWorldWide"
+            alt="Wille Worldwide"
             className="h-10 w-auto"
           />
         </Link>

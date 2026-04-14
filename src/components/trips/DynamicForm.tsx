@@ -351,7 +351,7 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
         <div className="flex items-start gap-2">
           <Checkbox checked={gdprAccepted} onCheckedChange={v => { setGdprAccepted(!!v); setErrors(prev => ({ ...prev, gdpr: '' })); }} className="mt-0.5" />
           <span className="text-sm text-muted-foreground">
-            Jag godkänner att WilleWorldWide lagrar och behandlar {totalPeople > 1 ? 'våra' : 'mina'} personuppgifter i enlighet med GDPR.
+            Jag godkänner att Wille Worldwide lagrar och behandlar {totalPeople > 1 ? 'våra' : 'mina'} personuppgifter i enlighet med GDPR.
           </span>
         </div>
         {errors['gdpr'] && <p className="text-xs text-destructive">{errors['gdpr']}</p>}

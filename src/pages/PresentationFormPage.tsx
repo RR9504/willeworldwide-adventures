@@ -68,7 +68,7 @@ const PresentationFormPage = () => {
     <div className="flex min-h-screen flex-col bg-muted/30">
       <main className="container max-w-2xl flex-1 py-8">
         <div className="mb-6 text-center">
-          <img src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/short-logo-wille-worldwide-vittext-rgb.png?media=1766889486" alt="WilleWorldWide" className="mx-auto mb-4 h-10 w-auto rounded bg-sidebar p-2" />
+          <img src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/short-logo-wille-worldwide-vittext-rgb.png?media=1766889486" alt="Wille Worldwide" className="mx-auto mb-4 h-10 w-auto rounded bg-sidebar p-2" />
           <h1 className="font-heading text-2xl font-bold">{trip.title}</h1>
           <p className="mt-1 text-muted-foreground">Hej{name ? ` ${name.split(' ')[0]}` : ''}! Fyll i formuläret nedan så att dina medresenärer kan lära känna dig lite bättre.</p>
         </div>
@@ -94,7 +94,7 @@ const PresentationFormPage = () => {
           </CardContent>
         </Card>
       </main>
-      <footer className="border-t py-6 text-center text-xs text-muted-foreground">© {new Date().getFullYear()} WilleWorldWide</footer>
+      <footer className="border-t py-6 text-center text-xs text-muted-foreground">© {new Date().getFullYear()} Wille Worldwide</footer>
     </div>
   );
 };

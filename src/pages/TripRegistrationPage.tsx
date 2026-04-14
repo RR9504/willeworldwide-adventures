@@ -205,7 +205,7 @@ const TripRegistrationPage = () => {
 
       {!isEmbed && (
         <footer className="border-t py-6 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} WilleWorldWide
+          © {new Date().getFullYear()} Wille Worldwide
         </footer>
       )}
     </div>

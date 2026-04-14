@@ -5,7 +5,7 @@ const defaultPresentationFields: PresentationQuestion[] = [
   { id: 'p2', question: 'Varifrån kommer du?', type: 'text', placeholder: 'Stad/ort' },
   { id: 'p3', question: 'Hur gammal är du?', type: 'text', placeholder: 'Ålder' },
   { id: 'p4', question: 'Vad jobbar du med?', type: 'text', placeholder: 'Yrke/sysselsättning' },
-  { id: 'p5', question: 'Har du rest med WilleWorldWide förut?', type: 'text', placeholder: 'Ja/Nej – om ja, vilken resa?' },
+  { id: 'p5', question: 'Har du rest med Wille Worldwide förut?', type: 'text', placeholder: 'Ja/Nej – om ja, vilken resa?' },
   { id: 'p6', question: 'Vad ser du mest fram emot på resan?', type: 'textarea', placeholder: 'Skidåkningen, umgänget, maten...?' },
   { id: 'p7', question: 'Hur skulle dina vänner beskriva dig?', type: 'textarea', placeholder: 'Tre ord eller en mening' },
   { id: 'p8', question: 'Vad är din skidvana? (skidresor)', type: 'text', placeholder: 'Nybörjare / Medel / Avancerad' },

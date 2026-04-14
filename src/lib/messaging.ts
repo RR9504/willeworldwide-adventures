@@ -61,7 +61,7 @@ export function buildOrderConfirmationEmail(
     message += `Tack för din bokning av ${tripTitle}. Vi har mottagit din betalning och din plats är nu bekräftad.`;
   }
 
-  message += `\n\nVi återkommer med mer information inför resan.\n\nVarma hälsningar,\nWilleWorldWide`;
+  message += `\n\nVi återkommer med mer information inför resan.\n\nVarma hälsningar,\nWille Worldwide`;
 
   return {
     subject: isFullyPaid ? `Betalning mottagen — ${tripTitle}` : `Bokningsbekräftelse — ${tripTitle}`,
@@ -152,7 +152,7 @@ export function buildRegistrationEmail(params: RegistrationEmailParams): { subje
     message += `\n\n${paymentNote}`;
   }
 
-  message += `\n\nVarma hälsningar,\nWilleWorldWide`;
+  message += `\n\nVarma hälsningar,\nWille Worldwide`;
 
   return {
     subject: hasDeposit

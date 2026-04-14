@@ -105,7 +105,7 @@ serve(async (req) => {
     const { channel, recipients, subject, message, from_email, from_name } = body;
 
     const fromAddr = from_email || "hej@willeworldwide.se";
-    const fromN = from_name || "WilleWorldWide";
+    const fromN = from_name || "Wille Worldwide";
 
     const results: { recipient: string; sms?: boolean; email?: boolean; errors: string[] }[] = [];
 
@@ -127,7 +127,7 @@ serve(async (req) => {
         const emailResult = await sendEmail(
           recipient.email,
           recipient.name,
-          subject || "Meddelande från WilleWorldWide",
+          subject || "Meddelande från Wille Worldwide",
           htmlBody,
           fromAddr,
           fromN,
