@@ -31,10 +31,18 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
 export function buildOrderConfirmationEmail(
   firstName: string,
   tripTitle: string,
-  options?: { deposit?: number; totalPrice?: number; isFullyPaid?: boolean },
+  options?: { deposit?: number; totalPrice?: number; extraCosts?: Record<string, number>; isFullyPaid?: boolean },
 ): { subject: string; message: string } {
-  const { deposit, totalPrice, isFullyPaid } = options || {};
+  const { deposit, totalPrice, extraCosts, isFullyPaid } = options || {};
   const hasDeposit = deposit && deposit > 0;
+  const sekExtra = extraCosts?.['SEK'] || 0;
+  const totalSek = (totalPrice || 0) + sekExtra;
+  const otherCurrencies = Object.entries(extraCosts || {}).filter(([k, v]) => k !== 'SEK' && v > 0);
+
+  let priceStr = `${totalSek.toLocaleString('sv-SE')} SEK`;
+  if (otherCurrencies.length > 0) {
+    priceStr += otherCurrencies.map(([cur, amount]) => ` + ${amount.toLocaleString('sv-SE')} ${cur}`).join('');
+  }
 
   let message = `Hej ${firstName}!\n\n`;
 
@@ -42,8 +50,12 @@ export function buildOrderConfirmationEmail(
     message += `Tack för din betalning av ${tripTitle}. Din resa är nu helt betald och din plats är bekräftad.`;
   } else if (hasDeposit) {
     message += `Tack! Vi har mottagit din deposition på ${deposit.toLocaleString('sv-SE')} SEK för ${tripTitle}. Din plats är nu bekräftad.`;
-    if (totalPrice && totalPrice > deposit) {
-      message += `\n\nResterande belopp (${(totalPrice - deposit).toLocaleString('sv-SE')} SEK) betalas senare. Vi återkommer med information om detta.`;
+    message += `\n\nDitt totalpris: ${priceStr}`;
+    if (totalSek > deposit || otherCurrencies.length > 0) {
+      const parts: string[] = [];
+      if (totalSek > deposit) parts.push(`${(totalSek - deposit).toLocaleString('sv-SE')} SEK`);
+      otherCurrencies.forEach(([cur, amount]) => parts.push(`${amount.toLocaleString('sv-SE')} ${cur}`));
+      message += `\nResterande belopp (${parts.join(' + ')}) betalas senare. Vi återkommer med information om detta.`;
     }
   } else {
     message += `Tack för din bokning av ${tripTitle}. Vi har mottagit din betalning och din plats är nu bekräftad.`;
@@ -55,6 +67,35 @@ export function buildOrderConfirmationEmail(
     subject: isFullyPaid ? `Betalning mottagen — ${tripTitle}` : `Bokningsbekräftelse — ${tripTitle}`,
     message,
   };
+}
+
+export function calcExtraCostsFromFormData(formFields: import('@/types/trip').FormField[], formData: Record<string, any>): Record<string, number> {
+  const totals: Record<string, number> = {};
+  formFields.forEach(field => {
+    if (field.type === 'checkbox' && formData[field.label] && field.priceModifier) {
+      const cur = field.priceModifierCurrency || 'SEK';
+      totals[cur] = (totals[cur] || 0) + field.priceModifier;
+    }
+    if (field.type === 'select' && field.options && formData[field.label]) {
+      const selected = field.options.find(o => o.value === formData[field.label]);
+      if (selected?.priceModifier) {
+        const cur = selected.priceModifierCurrency || 'SEK';
+        totals[cur] = (totals[cur] || 0) + selected.priceModifier;
+      }
+    }
+    if (formData[field.label] && field.conditionalFields) {
+      field.conditionalFields.forEach(cf => {
+        if (cf.options && formData[cf.label]) {
+          const selected = cf.options.find(o => o.value === formData[cf.label]);
+          if (selected?.priceModifier) {
+            const cur = selected.priceModifierCurrency || 'SEK';
+            totals[cur] = (totals[cur] || 0) + selected.priceModifier;
+          }
+        }
+      });
+    }
+  });
+  return totals;
 }
 
 interface RegistrationEmailParams {

@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header';
 import { useTrip, useRegistrations, useUpdateRegistration } from '@/hooks/useTrips';
 import { Button } from '@/components/ui/button';
 import { PaymentStatus } from '@/types/trip';
-import { sendMessage, buildOrderConfirmationEmail } from '@/lib/messaging';
+import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData } from '@/lib/messaging';
 import { toast } from 'sonner';
 
 const paymentLabels: Record<PaymentStatus, string> = {
@@ -129,9 +129,11 @@ const ParticipantDetailPage = () => {
                         const phone = reg.form_data['Telefon'];
                         const firstName = reg.form_data['Förnamn'] || '';
                         const fullName = `${firstName} ${reg.form_data['Efternamn'] || ''}`.trim();
+                        const extraCosts = calcExtraCostsFromFormData(trip.form_fields, reg.form_data);
                         const { subject, message } = buildOrderConfirmationEmail(firstName, trip.title, {
                           deposit: trip.payment_info?.deposit,
                           totalPrice: trip.price,
+                          extraCosts,
                           isFullyPaid: reg.payment_status === 'paid',
                         });
 
