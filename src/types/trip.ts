@@ -6,6 +6,7 @@ export type FormFieldType = 'text' | 'email' | 'phone' | 'textarea' | 'select' |
 export interface FormFieldOption {
   label: string;
   value: string;
+  priceModifier?: number;
 }
 
 export interface ConditionalField {
@@ -24,6 +25,7 @@ export interface FormField {
   description?: string;
   descriptionUrl?: string;
   required: boolean;
+  priceModifier?: number;
   options?: FormFieldOption[];
   conditionalFields?: ConditionalField[];
   showInSummary?: boolean;

@@ -25,6 +25,36 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
 
   const totalPeople = 1 + companions.length;
 
+  const calcPriceModifiers = (data: Record<string, any>): number => {
+    let extra = 0;
+    fields.forEach(field => {
+      // Checkbox with priceModifier
+      if (field.type === 'checkbox' && data[field.label] && field.priceModifier) {
+        extra += field.priceModifier;
+      }
+      // Select option with priceModifier
+      if (field.type === 'select' && field.options && data[field.label]) {
+        const selected = field.options.find(o => o.value === data[field.label]);
+        if (selected?.priceModifier) extra += selected.priceModifier;
+      }
+      // Conditional field options with priceModifier
+      if (data[field.label] && field.conditionalFields) {
+        field.conditionalFields.forEach(cf => {
+          if (cf.options && data[cf.label]) {
+            const selected = cf.options.find(o => o.value === data[cf.label]);
+            if (selected?.priceModifier) extra += selected.priceModifier;
+          }
+        });
+      }
+    });
+    return extra;
+  };
+
+  const mainModifiers = calcPriceModifiers(formData);
+  const companionModifiers = companions.reduce((sum, c) => sum + calcPriceModifiers(c), 0);
+  const dynamicTotalPerPerson = (tripPrice ?? 0) + mainModifiers;
+  const dynamicTotal = dynamicTotalPerPerson + companions.reduce((sum, c) => sum + (tripPrice ?? 0) + calcPriceModifiers(c), 0);
+
   const updateField = (label: string, value: any) => {
     setFormData(prev => ({ ...prev, [label]: value }));
     setErrors(prev => ({ ...prev, [label]: '' }));
@@ -264,10 +294,13 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
         <UserPlus className="h-4 w-4" /> Lägg till medresenär
       </Button>
 
-      {totalPeople > 1 && tripPrice != null && tripPrice > 0 && (
+      {tripPrice != null && tripPrice > 0 && (mainModifiers > 0 || companionModifiers > 0 || totalPeople > 1) && (
         <div className="rounded-lg bg-accent p-4 text-center space-y-1">
-          <p className="text-sm text-muted-foreground">Totalt för {totalPeople} resenärer</p>
-          <p className="font-heading text-xl font-bold">{(tripPrice * totalPeople).toLocaleString('sv-SE')} kr</p>
+          <p className="text-sm text-muted-foreground">{totalPeople > 1 ? `Totalt för ${totalPeople} resenärer` : 'Ditt pris'}</p>
+          <p className="font-heading text-xl font-bold">{dynamicTotal.toLocaleString('sv-SE')} kr</p>
+          {(mainModifiers > 0 || companionModifiers > 0) && (
+            <p className="text-xs text-muted-foreground">Grundpris {tripPrice.toLocaleString('sv-SE')} kr + tillägg {(mainModifiers + companionModifiers).toLocaleString('sv-SE')} kr</p>
+          )}
           {paymentInfo?.deposit && paymentInfo.deposit > 0 && (
             <p className="text-xs text-muted-foreground">Varav deposition: {(paymentInfo.deposit * totalPeople).toLocaleString('sv-SE')} kr</p>
           )}

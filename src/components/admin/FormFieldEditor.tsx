@@ -209,6 +209,13 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                       placeholder={`Alternativ ${idx + 1}`}
                       className="flex-1"
                     />
+                    <Input
+                      type="number"
+                      value={opt.priceModifier ?? ''}
+                      onChange={e => updateOption(idx, { priceModifier: e.target.value ? Number(e.target.value) : undefined })}
+                      placeholder="± kr"
+                      className="w-24"
+                    />
                     <Button type="button" variant="ghost" size="icon" onClick={() => removeOption(idx)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
                       <X className="h-3 w-3" />
                     </Button>
@@ -217,6 +224,20 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                 <Button type="button" variant="outline" size="sm" onClick={addOption} className="gap-1">
                   <Plus className="h-3 w-3" /> Lägg till alternativ
                 </Button>
+              </div>
+            )}
+
+            {/* Checkbox price modifier */}
+            {field.type === 'checkbox' && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Pristillägg vid ikryssad (kr)</Label>
+                <Input
+                  type="number"
+                  value={field.priceModifier ?? ''}
+                  onChange={e => update({ priceModifier: e.target.value ? Number(e.target.value) : undefined })}
+                  placeholder="t.ex. 500"
+                  className="w-40"
+                />
               </div>
             )}
 
@@ -273,6 +294,13 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                                 }}
                                 placeholder={`Alternativ ${optIdx + 1}`}
                                 className="flex-1"
+                              />
+                              <Input
+                                type="number"
+                                value={opt.priceModifier ?? ''}
+                                onChange={e => updateConditionalOption(cfIdx, optIdx, { priceModifier: e.target.value ? Number(e.target.value) : undefined })}
+                                placeholder="± kr"
+                                className="w-24"
                               />
                               <Button type="button" variant="ghost" size="icon" onClick={() => removeConditionalOption(cfIdx, optIdx)} className="h-6 w-6 text-muted-foreground">
                                 <X className="h-3 w-3" />
