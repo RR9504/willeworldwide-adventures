@@ -36,6 +36,12 @@ export interface PresentationQuestion {
   placeholder?: string;
 }
 
+export interface TripDateRange {
+  start_date: string;
+  end_date: string;
+  label?: string;
+}
+
 export interface Trip {
   id: string;
   title: string;
@@ -44,6 +50,7 @@ export interface Trip {
   category: TripCategory;
   start_date: string;
   end_date: string;
+  additional_dates?: TripDateRange[];
   price: number;
   currency: string;
   max_participants: number;

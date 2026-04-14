@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sql } from '@/lib/db';
-import { Trip, TripCategory, TripStatus, FormField, PresentationQuestion } from '@/types/trip';
+import { Trip, TripCategory, TripStatus, FormField, PresentationQuestion, TripDateRange } from '@/types/trip';
 
 // Re-export registration hooks so pages can import everything from useTrips
 export { useRegistrations, useAllRegistrations, useRegistration, useCreateRegistration, useCreateRegistrations, useUpdateRegistration } from './useRegistrations';
@@ -24,6 +24,7 @@ function mapTrip(row: any): Trip {
     status: row.status as TripStatus,
     form_fields: (typeof row.form_fields === 'string' ? JSON.parse(row.form_fields) : row.form_fields) as FormField[],
     presentation_fields: (typeof row.presentation_fields === 'string' ? JSON.parse(row.presentation_fields) : row.presentation_fields) as PresentationQuestion[],
+    additional_dates: row.additional_dates ? (typeof row.additional_dates === 'string' ? JSON.parse(row.additional_dates) : row.additional_dates) as TripDateRange[] : undefined,
     payment_info: row.payment_info ? (typeof row.payment_info === 'string' ? JSON.parse(row.payment_info) : row.payment_info) : undefined,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -129,6 +130,7 @@ export function useSaveTrip() {
             status = COALESCE(${rest.status ?? null}, status),
             form_fields = COALESCE(${rest.form_fields ? JSON.stringify(rest.form_fields) : null}, form_fields),
             presentation_fields = COALESCE(${rest.presentation_fields ? JSON.stringify(rest.presentation_fields) : null}, presentation_fields),
+            additional_dates = ${rest.additional_dates ? JSON.stringify(rest.additional_dates) : null},
             payment_info = ${(rest as any).payment_info ? JSON.stringify((rest as any).payment_info) : null}
           WHERE id = ${id}
           RETURNING *
@@ -137,8 +139,8 @@ export function useSaveTrip() {
       } else {
         const t = rest as Omit<Trip, 'id' | 'created_at' | 'updated_at'>;
         const rows = await sql`
-          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, payment_info)
-          VALUES (${t.title}, ${t.description}, ${t.destination}, ${t.category}, ${t.start_date}, ${t.end_date}, ${t.price}, ${t.currency}, ${t.max_participants}, ${t.show_spots_left}, ${t.spots_left_threshold ?? null}, ${t.image_url}, ${t.image_position ?? null}, ${t.status}, ${JSON.stringify(t.form_fields)}, ${JSON.stringify(t.presentation_fields)}, ${(t as any).payment_info ? JSON.stringify((t as any).payment_info) : null})
+          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, payment_info)
+          VALUES (${t.title}, ${t.description}, ${t.destination}, ${t.category}, ${t.start_date}, ${t.end_date}, ${t.price}, ${t.currency}, ${t.max_participants}, ${t.show_spots_left}, ${t.spots_left_threshold ?? null}, ${t.image_url}, ${t.image_position ?? null}, ${t.status}, ${JSON.stringify(t.form_fields)}, ${JSON.stringify(t.presentation_fields)}, ${t.additional_dates ? JSON.stringify(t.additional_dates) : null}, ${(t as any).payment_info ? JSON.stringify((t as any).payment_info) : null})
           RETURNING *
         `;
         return mapTrip(rows[0]);

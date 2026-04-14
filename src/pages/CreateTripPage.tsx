@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import Header from '@/components/layout/Header';
 import FormFieldList from '@/components/admin/FormFieldList';
 import FormPreview from '@/components/admin/FormPreview';
-import { Trip, TripCategory, TripStatus, FormField, FormFieldType, PresentationQuestion } from '@/types/trip';
+import { Trip, TripCategory, TripStatus, TripDateRange, FormField, FormFieldType, PresentationQuestion } from '@/types/trip';
 import { useTrip, useSaveTrip } from '@/hooks/useTrips';
 import { formTemplates } from '@/data/formTemplates';
 import { toast } from 'sonner';
@@ -71,6 +71,7 @@ const CreateTripPage = () => {
   const [spotsLeftThreshold, setSpotsLeftThreshold] = useState(existingTrip?.spots_left_threshold?.toString() || '');
   const [imageUrl, setImageUrl] = useState(existingTrip?.image_url || '');
   const [status, setStatus] = useState<TripStatus>(existingTrip?.status || 'draft');
+  const [additionalDates, setAdditionalDates] = useState<TripDateRange[]>(existingTrip?.additional_dates || []);
   const [formFields, setFormFields] = useState<FormField[]>(existingTrip?.form_fields || defaultFormFields);
   const [presentationFields, setPresentationFields] = useState<PresentationQuestion[]>(existingTrip?.presentation_fields || defaultPresentationFields);
   const [swishEnabled, setSwishEnabled] = useState(!!existingTrip?.payment_info?.swish);
@@ -134,6 +135,7 @@ const CreateTripPage = () => {
         image_url: imageUrl.trim(),
         status,
         form_fields: formFields,
+        additional_dates: additionalDates.length > 0 ? additionalDates : undefined,
         presentation_fields: presentationFields,
         payment_info: (swishEnabled || vivaEnabled || depositAmount) ? {
           ...(swishEnabled ? { swish: { number: swishNumber, name: swishName, amount: swishAmount ? Number(swishAmount) : undefined } } : {}),
@@ -237,6 +239,71 @@ const CreateTripPage = () => {
                     <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
                   </div>
                 </div>
+
+                {/* Additional dates */}
+                {additionalDates.length > 0 && (
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Ytterligare datum</Label>
+                    {additionalDates.map((d, idx) => (
+                      <div key={idx} className="flex items-end gap-3 rounded-lg border p-3">
+                        <div className="flex-1 space-y-1">
+                          <Label className="text-xs">Etikett (valfritt)</Label>
+                          <Input
+                            value={d.label || ''}
+                            onChange={e => {
+                              const updated = [...additionalDates];
+                              updated[idx] = { ...d, label: e.target.value };
+                              setAdditionalDates(updated);
+                            }}
+                            placeholder="t.ex. Vecka 8"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Start</Label>
+                          <Input
+                            type="date"
+                            value={d.start_date}
+                            onChange={e => {
+                              const updated = [...additionalDates];
+                              updated[idx] = { ...d, start_date: e.target.value };
+                              setAdditionalDates(updated);
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Slut</Label>
+                          <Input
+                            type="date"
+                            value={d.end_date}
+                            onChange={e => {
+                              const updated = [...additionalDates];
+                              updated[idx] = { ...d, end_date: e.target.value };
+                              setAdditionalDates(updated);
+                            }}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-destructive hover:text-destructive"
+                          onClick={() => setAdditionalDates(prev => prev.filter((_, i) => i !== idx))}
+                        >
+                          <span className="text-lg">×</span>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAdditionalDates(prev => [...prev, { start_date: '', end_date: '' }])}
+                  className="gap-1.5"
+                >
+                  <Plus className="h-3 w-3" /> Lägg till datum
+                </Button>
 
                 <Separator />
 

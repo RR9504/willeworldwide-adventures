@@ -51,9 +51,12 @@ const TripRegistrationPage = () => {
 
   const regCount = registrations.length;
   const spotsLeft = trip.max_participants - regCount;
-  const startDate = new Date(trip.start_date);
-  const endDate = new Date(trip.end_date);
-  const dateStr = `${startDate.toLocaleDateString('sv-SE', { day: 'numeric', month: 'long' })} – ${endDate.toLocaleDateString('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  const formatDateRange = (start: string, end: string) => {
+    const s = new Date(start);
+    const e = new Date(end);
+    return `${s.toLocaleDateString('sv-SE', { day: 'numeric', month: 'long' })} – ${e.toLocaleDateString('sv-SE', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+  };
+  const dateStr = formatDateRange(trip.start_date, trip.end_date);
   const daysUntil = getDaysUntil(trip.start_date);
 
   const handleShare = () => {
@@ -141,7 +144,15 @@ const TripRegistrationPage = () => {
               <CardHeader><CardTitle className="text-lg">Reseinformation</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-2 text-sm"><MapPin className="h-4 w-4 text-primary" /><span>{trip.destination}</span></div>
-                <div className="flex items-center gap-2 text-sm"><CalendarDays className="h-4 w-4 text-primary" /><span>{dateStr}</span></div>
+                <div className="flex items-start gap-2 text-sm">
+                  <CalendarDays className="h-4 w-4 text-primary mt-0.5" />
+                  <div>
+                    <span>{dateStr}</span>
+                    {trip.additional_dates?.map((d, i) => (
+                      <span key={i} className="block text-muted-foreground">{d.label ? `${d.label}: ` : ''}{formatDateRange(d.start_date, d.end_date)}</span>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Countdown */}
                 {daysUntil > 0 && (
