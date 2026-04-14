@@ -25,35 +25,48 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
 
   const totalPeople = 1 + companions.length;
 
-  const calcPriceModifiers = (data: Record<string, any>): number => {
-    let extra = 0;
+  const calcPriceModifiers = (data: Record<string, any>): Record<string, number> => {
+    const totals: Record<string, number> = {};
     fields.forEach(field => {
-      // Checkbox with priceModifier
       if (field.type === 'checkbox' && data[field.label] && field.priceModifier) {
-        extra += field.priceModifier;
+        const cur = field.priceModifierCurrency || 'SEK';
+        totals[cur] = (totals[cur] || 0) + field.priceModifier;
       }
-      // Select option with priceModifier
       if (field.type === 'select' && field.options && data[field.label]) {
         const selected = field.options.find(o => o.value === data[field.label]);
-        if (selected?.priceModifier) extra += selected.priceModifier;
+        if (selected?.priceModifier) {
+          const cur = selected.priceModifierCurrency || 'SEK';
+          totals[cur] = (totals[cur] || 0) + selected.priceModifier;
+        }
       }
-      // Conditional field options with priceModifier
       if (data[field.label] && field.conditionalFields) {
         field.conditionalFields.forEach(cf => {
           if (cf.options && data[cf.label]) {
             const selected = cf.options.find(o => o.value === data[cf.label]);
-            if (selected?.priceModifier) extra += selected.priceModifier;
+            if (selected?.priceModifier) {
+              const cur = selected.priceModifierCurrency || 'SEK';
+              totals[cur] = (totals[cur] || 0) + selected.priceModifier;
+            }
           }
         });
       }
     });
-    return extra;
+    return totals;
+  };
+
+  const mergeTotals = (...maps: Record<string, number>[]): Record<string, number> => {
+    const result: Record<string, number> = {};
+    maps.forEach(m => Object.entries(m).forEach(([k, v]) => { result[k] = (result[k] || 0) + v; }));
+    return result;
   };
 
   const mainModifiers = calcPriceModifiers(formData);
-  const companionModifiers = companions.reduce((sum, c) => sum + calcPriceModifiers(c), 0);
-  const dynamicTotalPerPerson = (tripPrice ?? 0) + mainModifiers;
-  const dynamicTotal = dynamicTotalPerPerson + companions.reduce((sum, c) => sum + (tripPrice ?? 0) + calcPriceModifiers(c), 0);
+  const companionModifiersList = companions.map(c => calcPriceModifiers(c));
+  const allModifiers = mergeTotals(mainModifiers, ...companionModifiersList);
+  const sekModifiers = allModifiers['SEK'] || 0;
+  const otherCurrencies = Object.entries(allModifiers).filter(([k]) => k !== 'SEK');
+  const dynamicTotal = (tripPrice ?? 0) * totalPeople + sekModifiers;
+  const hasModifiers = Object.values(allModifiers).some(v => v > 0);
 
   const updateField = (label: string, value: any) => {
     setFormData(prev => ({ ...prev, [label]: value }));
@@ -294,15 +307,17 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
         <UserPlus className="h-4 w-4" /> Lägg till medresenär
       </Button>
 
-      {tripPrice != null && tripPrice > 0 && (mainModifiers > 0 || companionModifiers > 0 || totalPeople > 1) && (
+      {tripPrice != null && tripPrice > 0 && (hasModifiers || totalPeople > 1) && (
         <div className="rounded-lg bg-accent p-4 text-center space-y-1">
           <p className="text-sm text-muted-foreground">{totalPeople > 1 ? `Totalt för ${totalPeople} resenärer` : 'Ditt pris'}</p>
-          <p className="font-heading text-xl font-bold">{dynamicTotal.toLocaleString('sv-SE')} kr</p>
-          {(mainModifiers > 0 || companionModifiers > 0) && (
-            <p className="text-xs text-muted-foreground">Grundpris {tripPrice.toLocaleString('sv-SE')} kr + tillägg {(mainModifiers + companionModifiers).toLocaleString('sv-SE')} kr</p>
-          )}
+          <p className="font-heading text-xl font-bold">
+            {dynamicTotal.toLocaleString('sv-SE')} SEK
+            {otherCurrencies.map(([cur, amount]) => (
+              <span key={cur}> + {amount.toLocaleString('sv-SE')} {cur}</span>
+            ))}
+          </p>
           {paymentInfo?.deposit && paymentInfo.deposit > 0 && (
-            <p className="text-xs text-muted-foreground">Varav deposition: {(paymentInfo.deposit * totalPeople).toLocaleString('sv-SE')} kr</p>
+            <p className="text-xs text-muted-foreground">Varav deposition: {(paymentInfo.deposit * totalPeople).toLocaleString('sv-SE')} SEK</p>
           )}
         </div>
       )}

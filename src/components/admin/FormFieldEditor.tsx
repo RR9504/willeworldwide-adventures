@@ -213,9 +213,16 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                       type="number"
                       value={opt.priceModifier ?? ''}
                       onChange={e => updateOption(idx, { priceModifier: e.target.value ? Number(e.target.value) : undefined })}
-                      placeholder="± kr"
-                      className="w-24"
+                      placeholder="± pris"
+                      className="w-20"
                     />
+                    <Select value={opt.priceModifierCurrency || 'SEK'} onValueChange={v => updateOption(idx, { priceModifierCurrency: v })}>
+                      <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SEK">SEK</SelectItem>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button type="button" variant="ghost" size="icon" onClick={() => removeOption(idx)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
                       <X className="h-3 w-3" />
                     </Button>
@@ -229,15 +236,27 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
 
             {/* Checkbox price modifier */}
             {field.type === 'checkbox' && (
-              <div className="space-y-1.5">
-                <Label className="text-xs">Pristillägg vid ikryssad (kr)</Label>
-                <Input
-                  type="number"
-                  value={field.priceModifier ?? ''}
-                  onChange={e => update({ priceModifier: e.target.value ? Number(e.target.value) : undefined })}
-                  placeholder="t.ex. 500"
-                  className="w-40"
-                />
+              <div className="flex items-end gap-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Pristillägg vid ikryssad</Label>
+                  <Input
+                    type="number"
+                    value={field.priceModifier ?? ''}
+                    onChange={e => update({ priceModifier: e.target.value ? Number(e.target.value) : undefined })}
+                    placeholder="t.ex. 500"
+                    className="w-32"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Valuta</Label>
+                  <Select value={field.priceModifierCurrency || 'SEK'} onValueChange={v => update({ priceModifierCurrency: v })}>
+                    <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SEK">SEK</SelectItem>
+                      <SelectItem value="EUR">EUR</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
 
@@ -299,9 +318,16 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                                 type="number"
                                 value={opt.priceModifier ?? ''}
                                 onChange={e => updateConditionalOption(cfIdx, optIdx, { priceModifier: e.target.value ? Number(e.target.value) : undefined })}
-                                placeholder="± kr"
-                                className="w-24"
+                                placeholder="± pris"
+                                className="w-20"
                               />
+                              <Select value={opt.priceModifierCurrency || 'SEK'} onValueChange={v => updateConditionalOption(cfIdx, optIdx, { priceModifierCurrency: v })}>
+                                <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="SEK">SEK</SelectItem>
+                                  <SelectItem value="EUR">EUR</SelectItem>
+                                </SelectContent>
+                              </Select>
                               <Button type="button" variant="ghost" size="icon" onClick={() => removeConditionalOption(cfIdx, optIdx)} className="h-6 w-6 text-muted-foreground">
                                 <X className="h-3 w-3" />
                               </Button>

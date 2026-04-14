@@ -7,6 +7,7 @@ export interface FormFieldOption {
   label: string;
   value: string;
   priceModifier?: number;
+  priceModifierCurrency?: string;
 }
 
 export interface ConditionalField {
@@ -26,6 +27,7 @@ export interface FormField {
   descriptionUrl?: string;
   required: boolean;
   priceModifier?: number;
+  priceModifierCurrency?: string;
   options?: FormFieldOption[];
   conditionalFields?: ConditionalField[];
   showInSummary?: boolean;
