@@ -98,6 +98,19 @@ export function calcExtraCostsFromFormData(formFields: import('@/types/trip').Fo
   return totals;
 }
 
+// Lägsta möjliga SEK-tillägg från obligatoriska enkelval (t.ex. hotell) — används för "Pris från".
+export function calcMinRequiredExtraSek(formFields: import('@/types/trip').FormField[]): number {
+  return formFields.reduce((sum, field) => {
+    if (field.type === 'select' && field.required && field.options?.length) {
+      const sekMods = field.options
+        .filter(o => (o.priceModifierCurrency || 'SEK') === 'SEK')
+        .map(o => o.priceModifier || 0);
+      if (sekMods.length) sum += Math.min(...sekMods);
+    }
+    return sum;
+  }, 0);
+}
+
 interface RegistrationEmailParams {
   firstName: string;
   tripTitle: string;

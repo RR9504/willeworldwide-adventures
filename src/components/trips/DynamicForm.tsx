@@ -332,7 +332,7 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
         <UserPlus className="h-4 w-4" /> Lägg till medresenär
       </Button>
 
-      {tripPrice != null && tripPrice > 0 && (hasModifiers || totalPeople > 1) && (
+      {dynamicTotal > 0 && (hasModifiers || totalPeople > 1) && (
         <div className="rounded-lg bg-accent p-4 text-center space-y-1">
           <p className="text-sm text-muted-foreground">{totalPeople > 1 ? `Totalt för ${totalPeople} resenärer` : 'Ditt pris'}</p>
           <p className="font-heading text-xl font-bold">

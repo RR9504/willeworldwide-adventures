@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import DynamicForm, { SubmitMeta } from '@/components/trips/DynamicForm';
 import { useTrip, useRegistrations, useCreateRegistration, useCreateRegistrations } from '@/hooks/useTrips';
-import { sendMessage, buildRegistrationEmail } from '@/lib/messaging';
+import { sendMessage, buildRegistrationEmail, calcMinRequiredExtraSek } from '@/lib/messaging';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -58,6 +58,7 @@ const TripRegistrationPage = () => {
   };
   const dateStr = formatDateRange(trip.start_date, trip.end_date);
   const daysUntil = getDaysUntil(trip.start_date);
+  const fromPrice = trip.price + calcMinRequiredExtraSek(trip.form_fields);
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href.replace('?embed=true', ''));
@@ -173,7 +174,7 @@ const TripRegistrationPage = () => {
                 {/* Price */}
                 <div className="rounded-lg bg-accent p-4 text-center">
                   <p className="text-sm text-muted-foreground">Pris från</p>
-                  <p className="font-heading text-3xl font-bold text-foreground">{trip.price.toLocaleString('sv-SE')} <span className="text-base">{trip.currency}</span></p>
+                  <p className="font-heading text-3xl font-bold text-foreground">{fromPrice.toLocaleString('sv-SE')} <span className="text-base">{trip.currency}</span></p>
                 </div>
 
                 <p className="text-sm text-muted-foreground leading-relaxed">{trip.description}</p>

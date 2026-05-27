@@ -36,6 +36,13 @@ const ParticipantDetailPage = () => {
   const name = `${reg.form_data['Förnamn'] || ''} ${reg.form_data['Efternamn'] || ''}`.trim() || 'Okänd';
   const hasPresentationData = reg.presentation_data && Object.keys(reg.presentation_data).length > 0;
 
+  // Slutpris = grundpris + prismodifierare från valda alternativ (t.ex. hotell)
+  const extraCosts = calcExtraCostsFromFormData(trip.form_fields, reg.form_data);
+  const otherCurrencies = Object.entries(extraCosts).filter(([k, v]) => k !== 'SEK' && v > 0);
+  const totalSek = trip.price + (extraCosts['SEK'] || 0);
+  const formatPrice = (sek: number) =>
+    [`${sek.toLocaleString('sv-SE')} ${trip.currency}`, ...otherCurrencies.map(([cur, amount]) => `${amount.toLocaleString('sv-SE')} ${cur}`)].join(' + ');
+
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
       <Header />
@@ -109,7 +116,7 @@ const ParticipantDetailPage = () => {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Pris</span>
-                  <span className="text-sm font-medium">{trip.price.toLocaleString('sv-SE')} {trip.currency}</span>
+                  <span className="text-sm font-medium">{formatPrice(totalSek)}</span>
                 </div>
                 {reg.payment_note && (<div><span className="text-sm text-muted-foreground">Anteckning</span><p className="mt-1 text-sm">{reg.payment_note}</p></div>)}
 
@@ -129,7 +136,6 @@ const ParticipantDetailPage = () => {
                         const phone = reg.form_data['Telefon'];
                         const firstName = reg.form_data['Förnamn'] || '';
                         const fullName = `${firstName} ${reg.form_data['Efternamn'] || ''}`.trim();
-                        const extraCosts = calcExtraCostsFromFormData(trip.form_fields, reg.form_data);
                         const { subject, message } = buildOrderConfirmationEmail(firstName, trip.title, {
                           deposit: trip.payment_info?.deposit,
                           totalPrice: trip.price,
@@ -182,7 +188,7 @@ const ParticipantDetailPage = () => {
                 <div className="border-t pt-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Totalpris</span>
-                    <span className="text-sm font-medium">{trip.price.toLocaleString('sv-SE')} {trip.currency}</span>
+                    <span className="text-sm font-medium">{formatPrice(totalSek)}</span>
                   </div>
                   {reg.payment_status === 'paid' ? (
                     <div className="flex items-center justify-between border-t pt-2 text-green-600">
@@ -206,8 +212,8 @@ const ParticipantDetailPage = () => {
                         <span className="text-sm font-semibold">Att betala</span>
                         <span className="text-sm font-bold">
                           {reg.payment_status === 'partial'
-                            ? `${(trip.price - trip.payment_info.deposit).toLocaleString('sv-SE')} ${trip.currency}`
-                            : `${trip.price.toLocaleString('sv-SE')} ${trip.currency}`
+                            ? formatPrice(totalSek - trip.payment_info.deposit)
+                            : formatPrice(totalSek)
                           }
                         </span>
                       </div>
@@ -215,7 +221,7 @@ const ParticipantDetailPage = () => {
                   ) : (
                     <div className="flex items-center justify-between border-t pt-2">
                       <span className="text-sm font-semibold">Att betala</span>
-                      <span className="text-sm font-bold">{trip.price.toLocaleString('sv-SE')} {trip.currency}</span>
+                      <span className="text-sm font-bold">{formatPrice(totalSek)}</span>
                     </div>
                   )}
                 </div>
