@@ -91,6 +91,18 @@ export function useCreateRegistrations() {
   });
 }
 
+export function useDeleteRegistration() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await sql`DELETE FROM registrations WHERE id = ${id}`;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registrations'] });
+    },
+  });
+}
+
 export function useUpdateRegistration() {
   const queryClient = useQueryClient();
   return useMutation({

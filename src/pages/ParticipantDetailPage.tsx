@@ -1,8 +1,12 @@
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2, Receipt, Printer, CheckCircle2, Send, Mail } from 'lucide-react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2, Receipt, Printer, CheckCircle2, Send, Mail, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import Header from '@/components/layout/Header';
-import { useTrip, useRegistrations, useUpdateRegistration } from '@/hooks/useTrips';
+import { useTrip, useRegistrations, useUpdateRegistration, useDeleteRegistration } from '@/hooks/useTrips';
 import { Button } from '@/components/ui/button';
 import { PaymentStatus } from '@/types/trip';
 import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels } from '@/lib/messaging';
@@ -20,10 +24,12 @@ const paymentColors: Record<PaymentStatus, string> = {
 
 const ParticipantDetailPage = () => {
   const { id, regId } = useParams<{ id: string; regId: string }>();
+  const navigate = useNavigate();
   const { data: trip, isLoading: tripLoading } = useTrip(id);
   const { data: registrations = [], isLoading: regsLoading } = useRegistrations(id);
   const reg = registrations.find(r => r.id === regId);
   const updateRegistration = useUpdateRegistration();
+  const deleteRegistration = useDeleteRegistration();
 
   if (tripLoading || regsLoading) {
     return (<div className="flex min-h-screen flex-col"><Header /><div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></div>);
@@ -52,9 +58,43 @@ const ParticipantDetailPage = () => {
           <ArrowLeft className="h-4 w-4" /> Tillbaka till {trip.title}
         </Link>
 
-        <div className="mb-6">
-          <h1 className="font-heading text-2xl font-bold">{name}</h1>
-          <p className="text-sm text-muted-foreground">{trip.title} · Anmäld {new Date(reg.created_at).toLocaleDateString('sv-SE')}</p>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="font-heading text-2xl font-bold">{name}</h1>
+            <p className="text-sm text-muted-foreground">{trip.title} · Anmäld {new Date(reg.created_at).toLocaleDateString('sv-SE')}</p>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 text-destructive hover:text-destructive" disabled={deleteRegistration.isPending}>
+                {deleteRegistration.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Ta bort anmälan
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Ta bort anmälan?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Anmälan från <strong>{name}</strong> tas bort permanent — inklusive lära känna-svar och betalningsstatus. Detta går inte att ångra.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={async () => {
+                    try {
+                      await deleteRegistration.mutateAsync(reg.id);
+                      toast.success('Anmälan är borttagen');
+                      navigate(`/dashboard/resor/${trip.id}`);
+                    } catch {
+                      toast.error('Kunde inte ta bort anmälan');
+                    }
+                  }}
+                >
+                  Ja, ta bort
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
