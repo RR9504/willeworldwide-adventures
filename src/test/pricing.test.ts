@@ -130,12 +130,12 @@ describe("email answer summary", () => {
     expect(lines).toEqual([]);
   });
 
-  it("formats presentation questions with answers", () => {
+  it("formats presentation questions with answers keyed on the question text", () => {
     const pf: PresentationQuestion[] = [
       { id: "pq-1", type: "textarea", question: "Berätta om dig" },
       { id: "pq-2", type: "text", question: "Varifrån?" },
     ];
-    const lines = formatPresentationForEmail(pf, { "pq-1": "Jag heter Anna", "pq-2": "Stockholm" });
+    const lines = formatPresentationForEmail(pf, { "Berätta om dig": "Jag heter Anna", "Varifrån?": "Stockholm" });
     expect(lines).toHaveLength(2);
     expect(lines[0]).toContain("Berätta om dig");
     expect(lines[0]).toContain("Jag heter Anna");
@@ -148,7 +148,7 @@ describe("email answer summary", () => {
       formFields: fields,
       formData: { "Förnamn": "Anna", "Hotell": "val-de-costa" },
       presentationFields: [{ id: "pq-1", type: "text", question: "Varifrån?" }],
-      presentationData: { "pq-1": "Stockholm" },
+      presentationData: { "Varifrån?": "Stockholm" },
     });
     expect(message).toContain("--- Dina svar ---");
     expect(message).toContain("Hotell: Val de Costa");

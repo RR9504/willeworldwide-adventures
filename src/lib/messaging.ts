@@ -161,7 +161,8 @@ export function formatPresentationForEmail(
 ): string[] {
   return presentationFields
     .map(pf => {
-      const answer = presentationData[pf.id];
+      // Svaren är keyed på pf.question (matchar PresentationFormPage + ParticipantDetailPage).
+      const answer = presentationData[pf.question];
       if (!answer) return null;
       return `• ${pf.question}\n  ${answer.replace(/\n/g, '\n  ')}`;
     })

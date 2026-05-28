@@ -82,18 +82,19 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
     setCompanionPresentations(prev => prev.filter((_, i) => i !== index));
   };
 
-  const updatePresentation = (questionId: string, value: string) => {
-    setPresentationData(prev => ({ ...prev, [questionId]: value }));
-    setErrors(prev => ({ ...prev, [`pres_${questionId}`]: '' }));
+  // Svaren lagras keyed på pf.question (matchar befintlig PresentationFormPage + ParticipantDetailPage).
+  const updatePresentation = (pf: PresentationQuestion, value: string) => {
+    setPresentationData(prev => ({ ...prev, [pf.question]: value }));
+    setErrors(prev => ({ ...prev, [`pres_${pf.id}`]: '' }));
   };
 
-  const updateCompanionPresentation = (idx: number, questionId: string, value: string) => {
+  const updateCompanionPresentation = (idx: number, pf: PresentationQuestion, value: string) => {
     setCompanionPresentations(prev => {
       const updated = [...prev];
-      updated[idx] = { ...updated[idx], [questionId]: value };
+      updated[idx] = { ...updated[idx], [pf.question]: value };
       return updated;
     });
-    setErrors(prev => ({ ...prev, [`companion_${idx}_pres_${questionId}`]: '' }));
+    setErrors(prev => ({ ...prev, [`companion_${idx}_pres_${pf.id}`]: '' }));
   };
 
   const validate = () => {
@@ -123,13 +124,13 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
 
     // Validate presentation answers — alla frågor är obligatoriska
     presentationFields.forEach(pf => {
-      if (!presentationData[pf.id]?.trim()) {
+      if (!presentationData[pf.question]?.trim()) {
         newErrors[`pres_${pf.id}`] = 'Detta fält är obligatoriskt';
       }
     });
     companions.forEach((_, idx) => {
       presentationFields.forEach(pf => {
-        if (!companionPresentations[idx]?.[pf.id]?.trim()) {
+        if (!companionPresentations[idx]?.[pf.question]?.trim()) {
           newErrors[`companion_${idx}_pres_${pf.id}`] = 'Detta fält är obligatoriskt';
         }
       });
@@ -339,7 +340,7 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
 
   const renderPresentationSection = (
     pData: Record<string, string>,
-    updateFn: (questionId: string, value: string) => void,
+    updateFn: (pf: PresentationQuestion, value: string) => void,
     errorPrefix: string,
   ) => (
     <div className="space-y-4 rounded-lg border border-primary/20 bg-primary/5 p-4">
@@ -358,15 +359,15 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
             {pf.type === 'textarea' ? (
               <Textarea
                 placeholder={pf.placeholder}
-                value={pData[pf.id] || ''}
-                onChange={e => updateFn(pf.id, e.target.value)}
+                value={pData[pf.question] || ''}
+                onChange={e => updateFn(pf, e.target.value)}
                 className={error ? 'border-destructive' : ''}
               />
             ) : (
               <Input
                 placeholder={pf.placeholder}
-                value={pData[pf.id] || ''}
-                onChange={e => updateFn(pf.id, e.target.value)}
+                value={pData[pf.question] || ''}
+                onChange={e => updateFn(pf, e.target.value)}
                 className={error ? 'border-destructive' : ''}
               />
             )}
@@ -400,7 +401,7 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
           ))}
           {hasPresentation && renderPresentationSection(
             companionPresentations[idx] || {},
-            (qid, value) => updateCompanionPresentation(idx, qid, value),
+            (pf, value) => updateCompanionPresentation(idx, pf, value),
             `companion_${idx}_`,
           )}
         </div>
