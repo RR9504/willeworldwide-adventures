@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FormField, Trip } from '@/types/trip';
+import { FormField, PresentationQuestion, Trip } from '@/types/trip';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -14,22 +14,29 @@ export interface SubmitMeta {
   dynamicTotal: number;
   otherCurrencies: [string, number][];
   tbdLabels: string[];
+  // Lära känna-svar per person — main + en post per medresenär
+  presentationData: Record<string, string>;
+  companionPresentations: Record<string, string>[];
 }
 
 interface DynamicFormProps {
   fields: FormField[];
+  presentationFields?: PresentationQuestion[];
   onSubmit: (data: Record<string, any>, companions?: Record<string, any>[], meta?: SubmitMeta) => void;
   isSubmitting?: boolean;
   paymentInfo?: Trip['payment_info'];
   tripPrice?: number;
 }
 
-const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }: DynamicFormProps) => {
+const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, paymentInfo, tripPrice }: DynamicFormProps) => {
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [presentationData, setPresentationData] = useState<Record<string, string>>({});
   const [companions, setCompanions] = useState<Record<string, any>[]>([]);
+  const [companionPresentations, setCompanionPresentations] = useState<Record<string, string>[]>([]);
   const [gdprAccepted, setGdprAccepted] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const hasPresentation = presentationFields.length > 0;
 
   const totalPeople = 1 + companions.length;
 
@@ -67,10 +74,26 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
 
   const addCompanion = () => {
     setCompanions(prev => [...prev, {}]);
+    setCompanionPresentations(prev => [...prev, {}]);
   };
 
   const removeCompanion = (index: number) => {
     setCompanions(prev => prev.filter((_, i) => i !== index));
+    setCompanionPresentations(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updatePresentation = (questionId: string, value: string) => {
+    setPresentationData(prev => ({ ...prev, [questionId]: value }));
+    setErrors(prev => ({ ...prev, [`pres_${questionId}`]: '' }));
+  };
+
+  const updateCompanionPresentation = (idx: number, questionId: string, value: string) => {
+    setCompanionPresentations(prev => {
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [questionId]: value };
+      return updated;
+    });
+    setErrors(prev => ({ ...prev, [`companion_${idx}_pres_${questionId}`]: '' }));
   };
 
   const validate = () => {
@@ -98,6 +121,20 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
       });
     });
 
+    // Validate presentation answers — alla frågor är obligatoriska
+    presentationFields.forEach(pf => {
+      if (!presentationData[pf.id]?.trim()) {
+        newErrors[`pres_${pf.id}`] = 'Detta fält är obligatoriskt';
+      }
+    });
+    companions.forEach((_, idx) => {
+      presentationFields.forEach(pf => {
+        if (!companionPresentations[idx]?.[pf.id]?.trim()) {
+          newErrors[`companion_${idx}_pres_${pf.id}`] = 'Detta fält är obligatoriskt';
+        }
+      });
+    });
+
     if (!gdprAccepted) newErrors['gdpr'] = 'Du måste godkänna villkoren';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -111,6 +148,8 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
       dynamicTotal,
       otherCurrencies,
       tbdLabels,
+      presentationData,
+      companionPresentations,
     };
     onSubmit(formData, companions.length > 0 ? companions : undefined, meta);
     setSubmitted(true);
@@ -190,7 +229,7 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
           </div>
         )}
 
-        {paymentInfo?.viva && (
+        {paymentInfo?.viva?.url && (
           <a href={paymentInfo.viva.url} target="_blank" rel="noopener noreferrer">
             <Button size="lg" className="gap-2 font-heading font-semibold">
               <CreditCard className="h-5 w-5" />
@@ -298,9 +337,51 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
     );
   };
 
+  const renderPresentationSection = (
+    pData: Record<string, string>,
+    updateFn: (questionId: string, value: string) => void,
+    errorPrefix: string,
+  ) => (
+    <div className="space-y-4 rounded-lg border border-primary/20 bg-primary/5 p-4">
+      <div>
+        <p className="font-heading font-semibold text-sm">Lära känna varandra</p>
+        <p className="text-xs text-muted-foreground">Så medresenärerna kan lära känna dig lite bättre.</p>
+      </div>
+      {presentationFields.map(pf => {
+        const errorKey = `${errorPrefix}pres_${pf.id}`;
+        const error = errors[errorKey];
+        return (
+          <div key={pf.id} className="space-y-2">
+            <Label className="text-sm font-medium">
+              {pf.question} <span className="text-primary">*</span>
+            </Label>
+            {pf.type === 'textarea' ? (
+              <Textarea
+                placeholder={pf.placeholder}
+                value={pData[pf.id] || ''}
+                onChange={e => updateFn(pf.id, e.target.value)}
+                className={error ? 'border-destructive' : ''}
+              />
+            ) : (
+              <Input
+                placeholder={pf.placeholder}
+                value={pData[pf.id] || ''}
+                onChange={e => updateFn(pf.id, e.target.value)}
+                className={error ? 'border-destructive' : ''}
+              />
+            )}
+            {error && <p className="text-xs text-destructive">{error}</p>}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {fields.map(field => renderField(field, formData, updateField))}
+
+      {hasPresentation && renderPresentationSection(presentationData, updatePresentation, '')}
 
       {/* Companions */}
       {companions.map((companion, idx) => (
@@ -317,6 +398,11 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
             (label, value) => updateCompanionField(idx, label, value),
             `companion_${idx}_`
           ))}
+          {hasPresentation && renderPresentationSection(
+            companionPresentations[idx] || {},
+            (qid, value) => updateCompanionPresentation(idx, qid, value),
+            `companion_${idx}_`,
+          )}
         </div>
       ))}
 

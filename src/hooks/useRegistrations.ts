@@ -56,10 +56,10 @@ export function useRegistration(regId: string | undefined, tripId?: string) {
 export function useCreateRegistration() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (reg: { trip_id: string; form_data: Record<string, any> }) => {
+    mutationFn: async (reg: { trip_id: string; form_data: Record<string, any>; presentation_data?: Record<string, string> }) => {
       const rows = await sql`
-        INSERT INTO registrations (trip_id, form_data)
-        VALUES (${reg.trip_id}, ${JSON.stringify(reg.form_data)})
+        INSERT INTO registrations (trip_id, form_data, presentation_data)
+        VALUES (${reg.trip_id}, ${JSON.stringify(reg.form_data)}, ${reg.presentation_data ? JSON.stringify(reg.presentation_data) : null})
         RETURNING *
       `;
       return mapRegistration(rows[0]);
@@ -73,12 +73,12 @@ export function useCreateRegistration() {
 export function useCreateRegistrations() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (regs: { trip_id: string; form_data: Record<string, any> }[]) => {
+    mutationFn: async (regs: { trip_id: string; form_data: Record<string, any>; presentation_data?: Record<string, string> }[]) => {
       const results: Registration[] = [];
       for (const reg of regs) {
         const rows = await sql`
-          INSERT INTO registrations (trip_id, form_data)
-          VALUES (${reg.trip_id}, ${JSON.stringify(reg.form_data)})
+          INSERT INTO registrations (trip_id, form_data, presentation_data)
+          VALUES (${reg.trip_id}, ${JSON.stringify(reg.form_data)}, ${reg.presentation_data ? JSON.stringify(reg.presentation_data) : null})
           RETURNING *
         `;
         results.push(mapRegistration(rows[0]));

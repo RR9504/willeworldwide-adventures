@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { calcExtraCostsFromFormData, calcMinRequiredExtraSek, collectTbdLabels, buildRegistrationEmail } from "@/lib/messaging";
-import { FormField } from "@/types/trip";
+import { calcExtraCostsFromFormData, calcMinRequiredExtraSek, collectTbdLabels, buildRegistrationEmail, formatAnswersForEmail, formatPresentationForEmail } from "@/lib/messaging";
+import { FormField, PresentationQuestion } from "@/types/trip";
 
 const hotelField: FormField = {
   id: "hotel",
@@ -94,5 +94,65 @@ describe("price tbd (meddelas senare)", () => {
     });
     expect(message).toContain("Rumstyp, Liftkort");
     expect(message).toContain("meddelas senare");
+  });
+});
+
+describe("email answer summary", () => {
+  const fields: FormField[] = [
+    { id: "f1", type: "text", label: "Förnamn", required: true },
+    { id: "f2", type: "email", label: "E-post", required: true },
+    { id: "f3", type: "select", label: "Hotell", required: true, options: [
+      { label: "Hotell Cavalletto", value: "hotell-cavalletto" },
+      { label: "Val de Costa", value: "val-de-costa" },
+    ]},
+    { id: "f4", type: "checkbox", label: "Liftkort", required: false },
+    { id: "f5", type: "text", label: "Övrigt", required: false },
+  ];
+
+  it("formats answered fields with select label resolved", () => {
+    const lines = formatAnswersForEmail(fields, {
+      "Förnamn": "Anna",
+      "E-post": "anna@example.com",
+      "Hotell": "val-de-costa",
+      "Liftkort": true,
+      "Övrigt": "",
+    });
+    expect(lines).toEqual([
+      "• Förnamn: Anna",
+      "• E-post: anna@example.com",
+      "• Hotell: Val de Costa",
+      "• Liftkort: Ja",
+    ]);
+  });
+
+  it("skips unticked checkboxes", () => {
+    const lines = formatAnswersForEmail(fields, { "Liftkort": false });
+    expect(lines).toEqual([]);
+  });
+
+  it("formats presentation questions with answers", () => {
+    const pf: PresentationQuestion[] = [
+      { id: "pq-1", type: "textarea", question: "Berätta om dig" },
+      { id: "pq-2", type: "text", question: "Varifrån?" },
+    ];
+    const lines = formatPresentationForEmail(pf, { "pq-1": "Jag heter Anna", "pq-2": "Stockholm" });
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain("Berätta om dig");
+    expect(lines[0]).toContain("Jag heter Anna");
+  });
+
+  it("includes the answer summary in the registration email", () => {
+    const { message } = buildRegistrationEmail({
+      firstName: "Anna",
+      tripTitle: "Skidresa",
+      formFields: fields,
+      formData: { "Förnamn": "Anna", "Hotell": "val-de-costa" },
+      presentationFields: [{ id: "pq-1", type: "text", question: "Varifrån?" }],
+      presentationData: { "pq-1": "Stockholm" },
+    });
+    expect(message).toContain("--- Dina svar ---");
+    expect(message).toContain("Hotell: Val de Costa");
+    expect(message).toContain("--- Lära känna ---");
+    expect(message).toContain("Stockholm");
   });
 });

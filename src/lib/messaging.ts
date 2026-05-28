@@ -125,6 +125,49 @@ export function collectTbdLabels(formFields: import('@/types/trip').FormField[],
   return labels;
 }
 
+// Formaterar en deltagares formulärsvar som rader "Etikett: värde" — för bekräftelsemejlets sammanfattning.
+// Hoppar över tomma fält och tomma kryssrutor. Konditionella underfält tas med när moderkryssrutan är ikryssad.
+export function formatAnswersForEmail(
+  formFields: import('@/types/trip').FormField[],
+  formData: Record<string, any>,
+): string[] {
+  const lines: string[] = [];
+  formFields.forEach(field => {
+    const val = formData[field.label];
+    if (val === undefined || val === '' || val === null) return;
+    if (field.type === 'checkbox') {
+      if (!val) return; // hoppa över ej ikryssade
+      lines.push(`• ${field.label}: Ja`);
+      field.conditionalFields?.forEach(cf => {
+        const cfVal = formData[cf.label];
+        if (cfVal === undefined || cfVal === '' || cfVal === null) return;
+        const displayVal = cf.options?.find(o => o.value === cfVal)?.label ?? String(cfVal);
+        lines.push(`    – ${cf.label}: ${displayVal}`);
+      });
+    } else if (field.type === 'select') {
+      const displayVal = field.options?.find(o => o.value === val)?.label ?? String(val);
+      lines.push(`• ${field.label}: ${displayVal}`);
+    } else {
+      lines.push(`• ${field.label}: ${val}`);
+    }
+  });
+  return lines;
+}
+
+// Formaterar lära känna-svaren — för bekräftelsemejlets sammanfattning.
+export function formatPresentationForEmail(
+  presentationFields: import('@/types/trip').PresentationQuestion[],
+  presentationData: Record<string, string>,
+): string[] {
+  return presentationFields
+    .map(pf => {
+      const answer = presentationData[pf.id];
+      if (!answer) return null;
+      return `• ${pf.question}\n  ${answer.replace(/\n/g, '\n  ')}`;
+    })
+    .filter((l): l is string => l !== null);
+}
+
 // Lägsta möjliga SEK-tillägg från obligatoriska enkelval (t.ex. hotell) — används för "Pris från".
 // TBD-alternativ ignoreras (priset är inte känt, kan inte räknas in).
 export function calcMinRequiredExtraSek(formFields: import('@/types/trip').FormField[]): number {
@@ -149,10 +192,18 @@ interface RegistrationEmailParams {
   vivaUrl?: string;
   paymentNote?: string;
   tbdLabels?: string[];
+  // Sammanfattning av deltagarens svar — så kunden ser exakt vad hen angav.
+  formFields?: import('@/types/trip').FormField[];
+  formData?: Record<string, any>;
+  presentationFields?: import('@/types/trip').PresentationQuestion[];
+  presentationData?: Record<string, string>;
 }
 
 export function buildRegistrationEmail(params: RegistrationEmailParams): { subject: string; message: string } {
-  const { firstName, tripTitle, deposit, totalPrice, extraCosts, swish, vivaUrl, paymentNote, tbdLabels } = params;
+  const {
+    firstName, tripTitle, deposit, totalPrice, extraCosts, swish, vivaUrl, paymentNote, tbdLabels,
+    formFields, formData, presentationFields, presentationData,
+  } = params;
   const hasDeposit = deposit && deposit > 0;
   const otherCurrencies = Object.entries(extraCosts || {}).filter(([k, v]) => k !== 'SEK' && v > 0);
   const sekExtra = extraCosts?.['SEK'] || 0;
@@ -196,6 +247,20 @@ export function buildRegistrationEmail(params: RegistrationEmailParams): { subje
 
   if (paymentNote) {
     message += `\n\n${paymentNote}`;
+  }
+
+  // Dina svar — så kunden ser tillbaka exakt vad hen angav
+  if (formFields && formData) {
+    const lines = formatAnswersForEmail(formFields, formData);
+    if (lines.length > 0) {
+      message += `\n\n--- Dina svar ---\n${lines.join('\n')}`;
+    }
+  }
+  if (presentationFields && presentationData) {
+    const lines = formatPresentationForEmail(presentationFields, presentationData);
+    if (lines.length > 0) {
+      message += `\n\n--- Lära känna ---\n${lines.join('\n')}`;
+    }
   }
 
   message += `\n\nVarma hälsningar,\nWille Worldwide`;

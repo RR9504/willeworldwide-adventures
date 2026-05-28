@@ -65,8 +65,15 @@ const TripRegistrationPage = () => {
     toast.success('Länk kopierad!');
   };
 
-  const sendRegistrationEmails = async (allFormData: Record<string, any>[], extraCosts: Record<string, number>, tbdLabels: string[]) => {
-    for (const formData of allFormData) {
+  const sendRegistrationEmails = async (
+    allFormData: Record<string, any>[],
+    allPresentationData: Record<string, string>[],
+    extraCosts: Record<string, number>,
+    tbdLabels: string[],
+  ) => {
+    for (let i = 0; i < allFormData.length; i++) {
+      const formData = allFormData[i];
+      const presentationData = allPresentationData[i] || {};
       const email = formData['E-post'];
       const firstName = formData['Förnamn'] || '';
       const lastName = formData['Efternamn'] || '';
@@ -82,6 +89,10 @@ const TripRegistrationPage = () => {
         vivaUrl: trip.payment_info?.viva?.url,
         paymentNote: trip.payment_info?.note,
         tbdLabels,
+        formFields: trip.form_fields,
+        formData,
+        presentationFields: trip.presentation_fields,
+        presentationData,
       });
       // Fire and forget — don't block the UI
       sendMessage({
@@ -99,19 +110,25 @@ const TripRegistrationPage = () => {
       const mainData = groupId ? { ...data, _group_id: groupId } : data;
       const extraCosts = meta?.extraCosts || {};
       const tbdLabels = meta?.tbdLabels || [];
+      const presentationData = meta?.presentationData || {};
+      const companionPresentations = meta?.companionPresentations || [];
 
       if (companions && companions.length > 0) {
         const allRegs = [
-          { trip_id: trip.id, form_data: mainData },
-          ...companions.map(c => ({ trip_id: trip.id, form_data: { ...c, _group_id: groupId } })),
+          { trip_id: trip.id, form_data: mainData, presentation_data: presentationData },
+          ...companions.map((c, idx) => ({
+            trip_id: trip.id,
+            form_data: { ...c, _group_id: groupId },
+            presentation_data: companionPresentations[idx] || {},
+          })),
         ];
         await createRegistrations.mutateAsync(allRegs);
         toast.success(`${allRegs.length} anmälningar skickade!`);
-        sendRegistrationEmails([mainData, ...companions], extraCosts, tbdLabels);
+        sendRegistrationEmails([mainData, ...companions], [presentationData, ...companionPresentations], extraCosts, tbdLabels);
       } else {
-        await createRegistration.mutateAsync({ trip_id: trip.id, form_data: mainData });
+        await createRegistration.mutateAsync({ trip_id: trip.id, form_data: mainData, presentation_data: presentationData });
         toast.success('Anmälan skickad!');
-        sendRegistrationEmails([mainData], extraCosts, tbdLabels);
+        sendRegistrationEmails([mainData], [presentationData], extraCosts, tbdLabels);
       }
     } catch {
       toast.error('Något gick fel. Försök igen.');
@@ -198,7 +215,7 @@ const TripRegistrationPage = () => {
                     <p className="mt-2 text-muted-foreground">Kontakta oss om du vill stå på väntelista.</p>
                   </div>
                 ) : (
-                  <DynamicForm fields={trip.form_fields} onSubmit={handleSubmit} paymentInfo={trip.payment_info} tripPrice={trip.price} />
+                  <DynamicForm fields={trip.form_fields} presentationFields={trip.presentation_fields} onSubmit={handleSubmit} paymentInfo={trip.payment_info} tripPrice={trip.price} />
                 )}
               </CardContent>
             </Card>
