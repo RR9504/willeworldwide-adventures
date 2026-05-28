@@ -1,13 +1,17 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2, Send, ExternalLink, ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2, Send, ExternalLink, ChevronDown, ChevronUp, Copy, Trash2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import Header from '@/components/layout/Header';
-import { useTrip, useRegistrations, useUpdateRegistration, useDuplicateTrip } from '@/hooks/useTrips';
+import { useTrip, useRegistrations, useUpdateRegistration, useDuplicateTrip, useDeleteTrip } from '@/hooks/useTrips';
 import SendMessageDialog from '@/components/admin/SendMessageDialog';
 import { PaymentStatus } from '@/types/trip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -30,6 +34,7 @@ const TripDetailsPage = () => {
   const { data: registrations = [], isLoading: regsLoading } = useRegistrations(id);
   const updateRegistration = useUpdateRegistration();
   const duplicateTrip = useDuplicateTrip();
+  const deleteTrip = useDeleteTrip();
 
   const [filterField, setFilterField] = useState<string>('');
   const [filterValue, setFilterValue] = useState<string>('');
@@ -209,6 +214,46 @@ const TripDetailsPage = () => {
             >
               {duplicateTrip.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />} Duplicera
             </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 text-destructive hover:text-destructive" disabled={deleteTrip.isPending}>
+                  {deleteTrip.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Ta bort
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Ta bort resan?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {registrations.length > 0 ? (
+                      <>
+                        <strong className="text-destructive">{registrations.length} anmäld{registrations.length > 1 ? 'a' : ''}</strong> är kopplad{registrations.length > 1 ? 'a' : ''} till <strong>{trip.title}</strong> och kommer också att tas bort. Detta går inte att ångra.
+                      </>
+                    ) : (
+                      <>
+                        <strong>{trip.title}</strong> kommer tas bort permanent. Detta går inte att ångra.
+                      </>
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={async () => {
+                      try {
+                        await deleteTrip.mutateAsync(trip.id);
+                        toast.success('Resan är borttagen');
+                        navigate('/dashboard');
+                      } catch {
+                        toast.error('Kunde inte ta bort resan');
+                      }
+                    }}
+                  >
+                    Ja, ta bort
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             {trip.presentation_fields.length > 0 && (
               <Link to={`/dashboard/resor/${trip.id}/presentation`}><Button variant="outline" size="sm" className="gap-2"><FileText className="h-4 w-4" /> Deltagarpresentation</Button></Link>
             )}
