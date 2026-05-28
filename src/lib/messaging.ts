@@ -31,9 +31,9 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
 export function buildOrderConfirmationEmail(
   firstName: string,
   tripTitle: string,
-  options?: { deposit?: number; totalPrice?: number; extraCosts?: Record<string, number>; isFullyPaid?: boolean },
+  options?: { deposit?: number; totalPrice?: number; extraCosts?: Record<string, number>; isFullyPaid?: boolean; tbdLabels?: string[] },
 ): { subject: string; message: string } {
-  const { deposit, totalPrice, extraCosts, isFullyPaid } = options || {};
+  const { deposit, totalPrice, extraCosts, isFullyPaid, tbdLabels } = options || {};
   const hasDeposit = deposit && deposit > 0;
   const sekExtra = extraCosts?.['SEK'] || 0;
   const totalSek = (totalPrice || 0) + sekExtra;
@@ -61,6 +61,10 @@ export function buildOrderConfirmationEmail(
     message += `Tack för din bokning av ${tripTitle}. Vi har mottagit din betalning och din plats är nu bekräftad.`;
   }
 
+  if (tbdLabels && tbdLabels.length > 0) {
+    message += `\n\nObs: Priser för följande tillkommer och meddelas senare: ${tbdLabels.join(', ')}.`;
+  }
+
   message += `\n\nVi återkommer med mer information inför resan.\n\nVarma hälsningar,\nWille Worldwide`;
 
   return {
@@ -72,13 +76,13 @@ export function buildOrderConfirmationEmail(
 export function calcExtraCostsFromFormData(formFields: import('@/types/trip').FormField[], formData: Record<string, any>): Record<string, number> {
   const totals: Record<string, number> = {};
   formFields.forEach(field => {
-    if (field.type === 'checkbox' && formData[field.label] && field.priceModifier) {
+    if (field.type === 'checkbox' && formData[field.label] && field.priceModifier && !field.priceTbd) {
       const cur = field.priceModifierCurrency || 'SEK';
       totals[cur] = (totals[cur] || 0) + field.priceModifier;
     }
     if (field.type === 'select' && field.options && formData[field.label]) {
       const selected = field.options.find(o => o.value === formData[field.label]);
-      if (selected?.priceModifier) {
+      if (selected?.priceModifier && !selected.priceTbd) {
         const cur = selected.priceModifierCurrency || 'SEK';
         totals[cur] = (totals[cur] || 0) + selected.priceModifier;
       }
@@ -87,7 +91,7 @@ export function calcExtraCostsFromFormData(formFields: import('@/types/trip').Fo
       field.conditionalFields.forEach(cf => {
         if (cf.options && formData[cf.label]) {
           const selected = cf.options.find(o => o.value === formData[cf.label]);
-          if (selected?.priceModifier) {
+          if (selected?.priceModifier && !selected.priceTbd) {
             const cur = selected.priceModifierCurrency || 'SEK';
             totals[cur] = (totals[cur] || 0) + selected.priceModifier;
           }
@@ -98,12 +102,36 @@ export function calcExtraCostsFromFormData(formFields: import('@/types/trip').Fo
   return totals;
 }
 
+// Etiketter för val där priset är markerat som "meddelas senare" — visas i form/mejl/admin.
+export function collectTbdLabels(formFields: import('@/types/trip').FormField[], formData: Record<string, any>): string[] {
+  const labels: string[] = [];
+  formFields.forEach(field => {
+    if (field.type === 'checkbox' && formData[field.label] && field.priceTbd) {
+      labels.push(field.label);
+    }
+    if (field.type === 'select' && field.options && formData[field.label]) {
+      const selected = field.options.find(o => o.value === formData[field.label]);
+      if (selected?.priceTbd) labels.push(field.label);
+    }
+    if (formData[field.label] && field.conditionalFields) {
+      field.conditionalFields.forEach(cf => {
+        if (cf.options && formData[cf.label]) {
+          const selected = cf.options.find(o => o.value === formData[cf.label]);
+          if (selected?.priceTbd) labels.push(cf.label);
+        }
+      });
+    }
+  });
+  return labels;
+}
+
 // Lägsta möjliga SEK-tillägg från obligatoriska enkelval (t.ex. hotell) — används för "Pris från".
+// TBD-alternativ ignoreras (priset är inte känt, kan inte räknas in).
 export function calcMinRequiredExtraSek(formFields: import('@/types/trip').FormField[]): number {
   return formFields.reduce((sum, field) => {
     if (field.type === 'select' && field.required && field.options?.length) {
       const sekMods = field.options
-        .filter(o => (o.priceModifierCurrency || 'SEK') === 'SEK')
+        .filter(o => !o.priceTbd && (o.priceModifierCurrency || 'SEK') === 'SEK')
         .map(o => o.priceModifier || 0);
       if (sekMods.length) sum += Math.min(...sekMods);
     }
@@ -120,10 +148,11 @@ interface RegistrationEmailParams {
   swish?: { number: string; name: string };
   vivaUrl?: string;
   paymentNote?: string;
+  tbdLabels?: string[];
 }
 
 export function buildRegistrationEmail(params: RegistrationEmailParams): { subject: string; message: string } {
-  const { firstName, tripTitle, deposit, totalPrice, extraCosts, swish, vivaUrl, paymentNote } = params;
+  const { firstName, tripTitle, deposit, totalPrice, extraCosts, swish, vivaUrl, paymentNote, tbdLabels } = params;
   const hasDeposit = deposit && deposit > 0;
   const otherCurrencies = Object.entries(extraCosts || {}).filter(([k, v]) => k !== 'SEK' && v > 0);
   const sekExtra = extraCosts?.['SEK'] || 0;
@@ -134,7 +163,11 @@ export function buildRegistrationEmail(params: RegistrationEmailParams): { subje
     priceStr += otherCurrencies.map(([cur, amount]) => ` + ${amount.toLocaleString('sv-SE')} ${cur}`).join('');
   }
 
-  let message = `Hej ${firstName}!\n\nVi har tagit emot din anmälan till ${tripTitle}.\n\nDitt pris: ${priceStr}\n\n`;
+  let message = `Hej ${firstName}!\n\nVi har tagit emot din anmälan till ${tripTitle}.\n\nDitt pris: ${priceStr}\n`;
+  if (tbdLabels && tbdLabels.length > 0) {
+    message += `(Priser för ${tbdLabels.join(', ')} tillkommer och meddelas senare.)\n`;
+  }
+  message += `\n`;
 
   if (hasDeposit) {
     message += `OBS: Din anmälan är inte bekräftad ännu. För att säkra din plats behöver du betala en deposition på ${deposit.toLocaleString('sv-SE')} SEK.\n\n`;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcExtraCostsFromFormData, calcMinRequiredExtraSek } from "@/lib/messaging";
+import { calcExtraCostsFromFormData, calcMinRequiredExtraSek, collectTbdLabels, buildRegistrationEmail } from "@/lib/messaging";
 import { FormField } from "@/types/trip";
 
 const hotelField: FormField = {
@@ -42,5 +42,57 @@ describe("pricing", () => {
 
   it("ignores optional checkboxes in the 'from' price", () => {
     expect(calcMinRequiredExtraSek([hotelField, optionalExtra])).toBe(12200);
+  });
+});
+
+describe("price tbd (meddelas senare)", () => {
+  const roomField: FormField = {
+    id: "room",
+    type: "select",
+    label: "Rumstyp",
+    required: true,
+    options: [
+      { label: "Dubbelrum", value: "double", priceModifier: 0, priceModifierCurrency: "SEK" },
+      { label: "Enkelrum", value: "single", priceTbd: true },
+    ],
+  };
+
+  const liftCard: FormField = {
+    id: "lift",
+    type: "checkbox",
+    label: "Liftkort",
+    required: false,
+    priceTbd: true,
+  };
+
+  it("does not add tbd option to the total", () => {
+    const extra = calcExtraCostsFromFormData([roomField], { Rumstyp: "single" });
+    expect(extra["SEK"] || 0).toBe(0);
+  });
+
+  it("does not add a tbd checkbox to the total even if ticked", () => {
+    const extra = calcExtraCostsFromFormData([liftCard], { Liftkort: true });
+    expect(extra["SEK"] || 0).toBe(0);
+  });
+
+  it("collects field labels for selected tbd options", () => {
+    const labels = collectTbdLabels([roomField, liftCard], { Rumstyp: "single", Liftkort: true });
+    expect(labels).toEqual(["Rumstyp", "Liftkort"]);
+  });
+
+  it("ignores tbd options when computing 'Pris från'", () => {
+    // Only the priced option (double=0) counts → min surcharge = 0.
+    expect(calcMinRequiredExtraSek([roomField])).toBe(0);
+  });
+
+  it("mentions tbd labels in the registration email", () => {
+    const { message } = buildRegistrationEmail({
+      firstName: "Anna",
+      tripTitle: "Test",
+      totalPrice: 1000,
+      tbdLabels: ["Rumstyp", "Liftkort"],
+    });
+    expect(message).toContain("Rumstyp, Liftkort");
+    expect(message).toContain("meddelas senare");
   });
 });

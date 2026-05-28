@@ -7,11 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, CreditCard, Smartphone, AlertTriangle, UserPlus, X } from 'lucide-react';
+import { calcExtraCostsFromFormData, collectTbdLabels } from '@/lib/messaging';
 
 export interface SubmitMeta {
   extraCosts: Record<string, number>;
   dynamicTotal: number;
   otherCurrencies: [string, number][];
+  tbdLabels: string[];
 }
 
 interface DynamicFormProps {
@@ -31,48 +33,23 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
 
   const totalPeople = 1 + companions.length;
 
-  const calcPriceModifiers = (data: Record<string, any>): Record<string, number> => {
-    const totals: Record<string, number> = {};
-    fields.forEach(field => {
-      if (field.type === 'checkbox' && data[field.label] && field.priceModifier) {
-        const cur = field.priceModifierCurrency || 'SEK';
-        totals[cur] = (totals[cur] || 0) + field.priceModifier;
-      }
-      if (field.type === 'select' && field.options && data[field.label]) {
-        const selected = field.options.find(o => o.value === data[field.label]);
-        if (selected?.priceModifier) {
-          const cur = selected.priceModifierCurrency || 'SEK';
-          totals[cur] = (totals[cur] || 0) + selected.priceModifier;
-        }
-      }
-      if (data[field.label] && field.conditionalFields) {
-        field.conditionalFields.forEach(cf => {
-          if (cf.options && data[cf.label]) {
-            const selected = cf.options.find(o => o.value === data[cf.label]);
-            if (selected?.priceModifier) {
-              const cur = selected.priceModifierCurrency || 'SEK';
-              totals[cur] = (totals[cur] || 0) + selected.priceModifier;
-            }
-          }
-        });
-      }
-    });
-    return totals;
-  };
-
   const mergeTotals = (...maps: Record<string, number>[]): Record<string, number> => {
     const result: Record<string, number> = {};
     maps.forEach(m => Object.entries(m).forEach(([k, v]) => { result[k] = (result[k] || 0) + v; }));
     return result;
   };
 
-  const mainModifiers = calcPriceModifiers(formData);
-  const companionModifiersList = companions.map(c => calcPriceModifiers(c));
+  const mainModifiers = calcExtraCostsFromFormData(fields, formData);
+  const companionModifiersList = companions.map(c => calcExtraCostsFromFormData(fields, c));
   const allModifiers = mergeTotals(mainModifiers, ...companionModifiersList);
   const sekModifiers = allModifiers['SEK'] || 0;
   const otherCurrencies = Object.entries(allModifiers).filter(([k]) => k !== 'SEK');
   const dynamicTotal = (tripPrice ?? 0) * totalPeople + sekModifiers;
   const hasModifiers = Object.values(allModifiers).some(v => v > 0);
+
+  const mainTbd = collectTbdLabels(fields, formData);
+  const companionTbd = companions.flatMap(c => collectTbdLabels(fields, c));
+  const tbdLabels = Array.from(new Set([...mainTbd, ...companionTbd]));
 
   const updateField = (label: string, value: any) => {
     setFormData(prev => ({ ...prev, [label]: value }));
@@ -133,6 +110,7 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
       extraCosts: allModifiers,
       dynamicTotal,
       otherCurrencies,
+      tbdLabels,
     };
     onSubmit(formData, companions.length > 0 ? companions : undefined, meta);
     setSubmitted(true);
@@ -166,6 +144,11 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
               <p className="text-sm text-yellow-700">
                 Ditt pris: <span className="font-bold">{priceDisplay}</span>
               </p>
+              {tbdLabels.length > 0 && (
+                <p className="text-xs italic text-yellow-700">
+                  Tillkommande pris meddelas senare för: {tbdLabels.join(', ')}.
+                </p>
+              )}
               <p className="text-sm text-yellow-700">
                 {totalPeople > 1 ? (
                   <>Betala depositionen på <span className="font-bold">{totalDeposit.toLocaleString('sv-SE')} SEK</span> ({totalPeople} × {depositPerPerson.toLocaleString('sv-SE')} SEK) för att bekräfta bokningen.</>
@@ -265,7 +248,10 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
             </SelectTrigger>
             <SelectContent>
               {field.options.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                  {opt.priceTbd && <span className="ml-2 text-xs text-muted-foreground">(pris meddelas senare)</span>}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -276,7 +262,10 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
                 checked={!!data[field.label]}
                 onCheckedChange={v => updateFn(field.label, v)}
               />
-              <span className="text-sm">{field.label}</span>
+              <span className="text-sm">
+                {field.label}
+                {field.priceTbd && <span className="ml-2 text-xs text-muted-foreground">(pris meddelas senare)</span>}
+              </span>
             </div>
             {data[field.label] && field.conditionalFields?.map((cf, idx) => (
               <div key={idx} className="ml-6 space-y-2">
@@ -286,7 +275,10 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
                     <SelectTrigger><SelectValue placeholder="Välj..." /></SelectTrigger>
                     <SelectContent>
                       {cf.options.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                          {opt.priceTbd && <span className="ml-2 text-xs text-muted-foreground">(pris meddelas senare)</span>}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -332,16 +324,25 @@ const DynamicForm = ({ fields, onSubmit, isSubmitting, paymentInfo, tripPrice }:
         <UserPlus className="h-4 w-4" /> Lägg till medresenär
       </Button>
 
-      {dynamicTotal > 0 && (hasModifiers || totalPeople > 1) && (
+      {((dynamicTotal > 0 && (hasModifiers || totalPeople > 1)) || tbdLabels.length > 0) && (
         <div className="rounded-lg bg-accent p-4 text-center space-y-1">
-          <p className="text-sm text-muted-foreground">{totalPeople > 1 ? `Totalt för ${totalPeople} resenärer` : 'Ditt pris'}</p>
-          <p className="font-heading text-xl font-bold">
-            {dynamicTotal.toLocaleString('sv-SE')} SEK
-            {otherCurrencies.map(([cur, amount]) => (
-              <span key={cur}> + {amount.toLocaleString('sv-SE')} {cur}</span>
-            ))}
-          </p>
-          {paymentInfo?.deposit && paymentInfo.deposit > 0 && (
+          {dynamicTotal > 0 && (hasModifiers || totalPeople > 1) && (
+            <>
+              <p className="text-sm text-muted-foreground">{totalPeople > 1 ? `Totalt för ${totalPeople} resenärer` : 'Ditt pris'}</p>
+              <p className="font-heading text-xl font-bold">
+                {dynamicTotal.toLocaleString('sv-SE')} SEK
+                {otherCurrencies.map(([cur, amount]) => (
+                  <span key={cur}> + {amount.toLocaleString('sv-SE')} {cur}</span>
+                ))}
+              </p>
+            </>
+          )}
+          {tbdLabels.length > 0 && (
+            <p className="text-xs italic text-muted-foreground">
+              Tillkommande pris meddelas senare för: {tbdLabels.join(', ')}.
+            </p>
+          )}
+          {paymentInfo?.deposit && paymentInfo.deposit > 0 && dynamicTotal > 0 && (
             <p className="text-xs text-muted-foreground">Varav deposition: {(paymentInfo.deposit * totalPeople).toLocaleString('sv-SE')} SEK</p>
           )}
         </div>

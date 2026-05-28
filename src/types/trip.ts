@@ -8,6 +8,8 @@ export interface FormFieldOption {
   value: string;
   priceModifier?: number;
   priceModifierCurrency?: string;
+  /** Pris inte satt än — visa "(pris meddelas senare)" och hoppa över i totalen. */
+  priceTbd?: boolean;
 }
 
 export interface ConditionalField {
@@ -28,6 +30,8 @@ export interface FormField {
   required: boolean;
   priceModifier?: number;
   priceModifierCurrency?: string;
+  /** Pris inte satt än (för kryssrutor) — visa "(pris meddelas senare)" och hoppa över i totalen. */
+  priceTbd?: boolean;
   options?: FormFieldOption[];
   conditionalFields?: ConditionalField[];
   showInSummary?: boolean;

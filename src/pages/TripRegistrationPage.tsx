@@ -65,7 +65,7 @@ const TripRegistrationPage = () => {
     toast.success('Länk kopierad!');
   };
 
-  const sendRegistrationEmails = async (allFormData: Record<string, any>[], extraCosts: Record<string, number>) => {
+  const sendRegistrationEmails = async (allFormData: Record<string, any>[], extraCosts: Record<string, number>, tbdLabels: string[]) => {
     for (const formData of allFormData) {
       const email = formData['E-post'];
       const firstName = formData['Förnamn'] || '';
@@ -81,6 +81,7 @@ const TripRegistrationPage = () => {
         swish: trip.payment_info?.swish ? { number: trip.payment_info.swish.number, name: trip.payment_info.swish.name } : undefined,
         vivaUrl: trip.payment_info?.viva?.url,
         paymentNote: trip.payment_info?.note,
+        tbdLabels,
       });
       // Fire and forget — don't block the UI
       sendMessage({
@@ -97,6 +98,7 @@ const TripRegistrationPage = () => {
       const groupId = companions?.length ? crypto.randomUUID() : undefined;
       const mainData = groupId ? { ...data, _group_id: groupId } : data;
       const extraCosts = meta?.extraCosts || {};
+      const tbdLabels = meta?.tbdLabels || [];
 
       if (companions && companions.length > 0) {
         const allRegs = [
@@ -105,11 +107,11 @@ const TripRegistrationPage = () => {
         ];
         await createRegistrations.mutateAsync(allRegs);
         toast.success(`${allRegs.length} anmälningar skickade!`);
-        sendRegistrationEmails([mainData, ...companions], extraCosts);
+        sendRegistrationEmails([mainData, ...companions], extraCosts, tbdLabels);
       } else {
         await createRegistration.mutateAsync({ trip_id: trip.id, form_data: mainData });
         toast.success('Anmälan skickad!');
-        sendRegistrationEmails([mainData], extraCosts);
+        sendRegistrationEmails([mainData], extraCosts, tbdLabels);
       }
     } catch {
       toast.error('Något gick fel. Försök igen.');

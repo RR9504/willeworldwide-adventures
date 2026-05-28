@@ -239,9 +239,10 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                             />
                             <Input
                               type="number"
-                              value={opt.priceModifier ?? ''}
+                              value={opt.priceTbd ? '' : (opt.priceModifier ?? '')}
+                              disabled={opt.priceTbd}
                               onChange={e => updateOption(idx, { priceModifier: e.target.value ? Number(e.target.value) : undefined })}
-                              placeholder="± pris"
+                              placeholder={opt.priceTbd ? 'senare' : '± pris'}
                               className="w-20"
                             />
                             <Select value={opt.priceModifierCurrency || 'SEK'} onValueChange={v => updateOption(idx, { priceModifierCurrency: v })}>
@@ -251,6 +252,14 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                                 <SelectItem value="EUR">EUR</SelectItem>
                               </SelectContent>
                             </Select>
+                            <button
+                              type="button"
+                              onClick={() => updateOption(idx, { priceTbd: !opt.priceTbd, priceModifier: opt.priceTbd ? opt.priceModifier : undefined })}
+                              title="Pris meddelas senare"
+                              className={`shrink-0 rounded px-2 py-1 text-xs ${opt.priceTbd ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                            >
+                              Senare
+                            </button>
                             <Button type="button" variant="ghost" size="icon" onClick={() => removeOption(idx)} className="h-8 w-8 text-muted-foreground hover:text-destructive">
                               <X className="h-3 w-3" />
                             </Button>
@@ -273,9 +282,10 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                   <Label className="text-xs">Pristillägg vid ikryssad</Label>
                   <Input
                     type="number"
-                    value={field.priceModifier ?? ''}
+                    value={field.priceTbd ? '' : (field.priceModifier ?? '')}
+                    disabled={field.priceTbd}
                     onChange={e => update({ priceModifier: e.target.value ? Number(e.target.value) : undefined })}
-                    placeholder="t.ex. 500"
+                    placeholder={field.priceTbd ? 'senare' : 't.ex. 500'}
                     className="w-32"
                   />
                 </div>
@@ -289,6 +299,14 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                     </SelectContent>
                   </Select>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => update({ priceTbd: !field.priceTbd, priceModifier: field.priceTbd ? field.priceModifier : undefined })}
+                  title="Pris meddelas senare"
+                  className={`shrink-0 rounded px-2 py-1.5 text-xs ${field.priceTbd ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                >
+                  Meddelas senare
+                </button>
               </div>
             )}
 
@@ -348,9 +366,10 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                               />
                               <Input
                                 type="number"
-                                value={opt.priceModifier ?? ''}
+                                value={opt.priceTbd ? '' : (opt.priceModifier ?? '')}
+                                disabled={opt.priceTbd}
                                 onChange={e => updateConditionalOption(cfIdx, optIdx, { priceModifier: e.target.value ? Number(e.target.value) : undefined })}
-                                placeholder="± pris"
+                                placeholder={opt.priceTbd ? 'senare' : '± pris'}
                                 className="w-20"
                               />
                               <Select value={opt.priceModifierCurrency || 'SEK'} onValueChange={v => updateConditionalOption(cfIdx, optIdx, { priceModifierCurrency: v })}>
@@ -360,6 +379,14 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                                   <SelectItem value="EUR">EUR</SelectItem>
                                 </SelectContent>
                               </Select>
+                              <button
+                                type="button"
+                                onClick={() => updateConditionalOption(cfIdx, optIdx, { priceTbd: !opt.priceTbd, priceModifier: opt.priceTbd ? opt.priceModifier : undefined })}
+                                title="Pris meddelas senare"
+                                className={`shrink-0 rounded px-2 py-1 text-xs ${opt.priceTbd ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+                              >
+                                Senare
+                              </button>
                               <Button type="button" variant="ghost" size="icon" onClick={() => removeConditionalOption(cfIdx, optIdx)} className="h-6 w-6 text-muted-foreground">
                                 <X className="h-3 w-3" />
                               </Button>

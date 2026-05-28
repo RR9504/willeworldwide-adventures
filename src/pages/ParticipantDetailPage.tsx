@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header';
 import { useTrip, useRegistrations, useUpdateRegistration } from '@/hooks/useTrips';
 import { Button } from '@/components/ui/button';
 import { PaymentStatus } from '@/types/trip';
-import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData } from '@/lib/messaging';
+import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels } from '@/lib/messaging';
 import { toast } from 'sonner';
 
 const paymentLabels: Record<PaymentStatus, string> = {
@@ -40,6 +40,7 @@ const ParticipantDetailPage = () => {
   const extraCosts = calcExtraCostsFromFormData(trip.form_fields, reg.form_data);
   const otherCurrencies = Object.entries(extraCosts).filter(([k, v]) => k !== 'SEK' && v > 0);
   const totalSek = trip.price + (extraCosts['SEK'] || 0);
+  const tbdLabels = collectTbdLabels(trip.form_fields, reg.form_data);
   const formatPrice = (sek: number) =>
     [`${sek.toLocaleString('sv-SE')} ${trip.currency}`, ...otherCurrencies.map(([cur, amount]) => `${amount.toLocaleString('sv-SE')} ${cur}`)].join(' + ');
 
@@ -118,6 +119,11 @@ const ParticipantDetailPage = () => {
                   <span className="text-sm text-muted-foreground">Pris</span>
                   <span className="text-sm font-medium">{formatPrice(totalSek)}</span>
                 </div>
+                {tbdLabels.length > 0 && (
+                  <p className="text-xs italic text-muted-foreground -mt-1">
+                    + pris för {tbdLabels.join(', ')} meddelas senare
+                  </p>
+                )}
                 {reg.payment_note && (<div><span className="text-sm text-muted-foreground">Anteckning</span><p className="mt-1 text-sm">{reg.payment_note}</p></div>)}
 
                 {/* Order confirmation */}
@@ -141,6 +147,7 @@ const ParticipantDetailPage = () => {
                           totalPrice: trip.price,
                           extraCosts,
                           isFullyPaid: reg.payment_status === 'paid',
+                          tbdLabels,
                         });
 
                         const result = await sendMessage({
@@ -190,6 +197,11 @@ const ParticipantDetailPage = () => {
                     <span className="text-sm">Totalpris</span>
                     <span className="text-sm font-medium">{formatPrice(totalSek)}</span>
                   </div>
+                  {tbdLabels.length > 0 && (
+                    <p className="text-xs italic text-muted-foreground">
+                      + pris för {tbdLabels.join(', ')} meddelas senare
+                    </p>
+                  )}
                   {reg.payment_status === 'paid' ? (
                     <div className="flex items-center justify-between border-t pt-2 text-green-600">
                       <span className="text-sm font-semibold">Helt betald</span>
