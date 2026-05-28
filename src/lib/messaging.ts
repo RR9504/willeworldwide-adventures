@@ -15,17 +15,28 @@ interface SendMessageParams {
 }
 
 export async function sendMessage(params: SendMessageParams): Promise<{ success: boolean; error?: string }> {
-  const res = await fetch(`${EDGE_FUNCTIONS_URL}/functions/v1/send-message`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
+  try {
+    const res = await fetch(`${EDGE_FUNCTIONS_URL}/functions/v1/send-message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
 
-  const data = await res.json();
-  if (!data.success) {
-    return { success: false, error: data.error || 'Något gick fel vid skickandet' };
+    let data: { success?: boolean; error?: string } = {};
+    try {
+      data = await res.json();
+    } catch {
+      return { success: false, error: `Oväntat svar från servern (HTTP ${res.status}).` };
+    }
+
+    if (!res.ok || data.success === false) {
+      return { success: false, error: data.error || `HTTP ${res.status}` };
+    }
+    return { success: true };
+  } catch (err) {
+    // Nätverksfel, DNS-fel (Supabase-projekt pausat), CORS — returnera tydligt fel istället för att kasta vidare.
+    return { success: false, error: `Kunde inte nå mejl/SMS-tjänsten: ${err instanceof Error ? err.message : String(err)}` };
   }
-  return { success: true };
 }
 
 export function buildOrderConfirmationEmail(

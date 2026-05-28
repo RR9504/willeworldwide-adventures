@@ -142,6 +142,10 @@ const ParticipantDetailPage = () => {
                         const phone = reg.form_data['Telefon'];
                         const firstName = reg.form_data['Förnamn'] || '';
                         const fullName = `${firstName} ${reg.form_data['Efternamn'] || ''}`.trim();
+                        if (!email && !phone) {
+                          toast.error('Saknar både e-post och telefon — kan inte skicka.');
+                          return;
+                        }
                         const { subject, message } = buildOrderConfirmationEmail(firstName, trip.title, {
                           deposit: trip.payment_info?.deposit,
                           totalPrice: trip.price,
@@ -149,18 +153,22 @@ const ParticipantDetailPage = () => {
                           isFullyPaid: reg.payment_status === 'paid',
                           tbdLabels,
                         });
-
-                        const result = await sendMessage({
-                          channel: email ? 'email' : 'sms',
-                          recipients: [{ name: fullName, email, phone }],
-                          subject,
-                          message,
-                        });
-
-                        if (result.success) {
-                          toast.success(`Orderbekräftelse skickad till ${email || phone}`);
-                        } else {
-                          toast.error('Kunde inte skicka orderbekräftelse');
+                        try {
+                          const result = await sendMessage({
+                            channel: email ? 'email' : 'sms',
+                            recipients: [{ name: fullName, email, phone }],
+                            subject,
+                            message,
+                          });
+                          if (result.success) {
+                            toast.success(`Orderbekräftelse skickad till ${email || phone}`);
+                          } else {
+                            toast.error(`Kunde inte skicka orderbekräftelse: ${result.error || 'okänt fel'}`);
+                            console.error('sendMessage failed', result.error);
+                          }
+                        } catch (err) {
+                          toast.error(`Oväntat fel: ${err instanceof Error ? err.message : String(err)}`);
+                          console.error('sendMessage threw', err);
                         }
                       }}
                     >

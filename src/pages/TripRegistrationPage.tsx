@@ -94,13 +94,15 @@ const TripRegistrationPage = () => {
         presentationFields: trip.presentation_fields,
         presentationData,
       });
-      // Fire and forget — don't block the UI
+      // Fire and forget — blockera inte UI, men logga fel så de syns i konsolen.
       sendMessage({
         channel: 'email',
         recipients: [{ name: `${firstName} ${lastName}`.trim(), email }],
         subject,
         message,
-      }).catch(() => {});
+      })
+        .then(r => { if (!r.success) console.error(`Registreringsmejl till ${email} misslyckades:`, r.error); })
+        .catch(err => console.error(`Registreringsmejl till ${email} kastade:`, err));
     }
   };
 
