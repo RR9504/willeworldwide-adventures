@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2, Send, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2, Send, ExternalLink, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Header from '@/components/layout/Header';
-import { useTrip, useRegistrations, useUpdateRegistration } from '@/hooks/useTrips';
+import { useTrip, useRegistrations, useUpdateRegistration, useDuplicateTrip } from '@/hooks/useTrips';
 import SendMessageDialog from '@/components/admin/SendMessageDialog';
 import { PaymentStatus } from '@/types/trip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -29,6 +29,7 @@ const TripDetailsPage = () => {
   const { data: trip, isLoading: tripLoading } = useTrip(id);
   const { data: registrations = [], isLoading: regsLoading } = useRegistrations(id);
   const updateRegistration = useUpdateRegistration();
+  const duplicateTrip = useDuplicateTrip();
 
   const [filterField, setFilterField] = useState<string>('');
   const [filterValue, setFilterValue] = useState<string>('');
@@ -191,6 +192,23 @@ const TripDetailsPage = () => {
           <div className="flex flex-wrap gap-2">
             <a href={`/resa/${trip.id}`} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-2"><ExternalLink className="h-4 w-4" /> Visa bokningssida</Button></a>
             <Link to={`/dashboard/resor/${trip.id}/redigera`}><Button variant="outline" size="sm" className="gap-2"><Pencil className="h-4 w-4" /> Redigera</Button></Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={duplicateTrip.isPending}
+              onClick={async () => {
+                try {
+                  const newTrip = await duplicateTrip.mutateAsync(trip.id);
+                  toast.success('Resa duplicerad — redigera och publicera när du är klar');
+                  navigate(`/dashboard/resor/${newTrip.id}/redigera`);
+                } catch {
+                  toast.error('Kunde inte duplicera resan');
+                }
+              }}
+            >
+              {duplicateTrip.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />} Duplicera
+            </Button>
             {trip.presentation_fields.length > 0 && (
               <Link to={`/dashboard/resor/${trip.id}/presentation`}><Button variant="outline" size="sm" className="gap-2"><FileText className="h-4 w-4" /> Deltagarpresentation</Button></Link>
             )}

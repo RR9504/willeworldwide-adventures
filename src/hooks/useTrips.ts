@@ -152,6 +152,28 @@ export function useSaveTrip() {
   });
 }
 
+// Duplicera en hel resa — formulärfält, presentationsfrågor, payment_info, allt
+// utom anmälningar. Kopian sätts till draft med "(kopia)" i titeln.
+export function useDuplicateTrip() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<Trip> => {
+      const rows = await sql`SELECT * FROM trips WHERE id = ${id}`;
+      if (rows.length === 0) throw new Error('Trip not found');
+      const src = mapTrip(rows[0]);
+      const newRows = await sql`
+        INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, payment_info)
+        VALUES (${`${src.title} (kopia)`}, ${src.description}, ${src.destination}, ${src.category}, ${src.start_date}, ${src.end_date}, ${src.price}, ${src.currency}, ${src.max_participants}, ${src.show_spots_left}, ${src.spots_left_threshold ?? null}, ${src.image_url}, ${src.image_position ?? null}, ${'draft' as TripStatus}, ${JSON.stringify(src.form_fields)}, ${JSON.stringify(src.presentation_fields)}, ${src.additional_dates ? JSON.stringify(src.additional_dates) : null}, ${src.payment_info ? JSON.stringify(src.payment_info) : null})
+        RETURNING *
+      `;
+      return mapTrip(newRows[0]);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trips'] });
+    },
+  });
+}
+
 export function useDeleteTrip() {
   const queryClient = useQueryClient();
   return useMutation({
