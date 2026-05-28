@@ -233,7 +233,7 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
           <a href={paymentInfo.viva.url} target="_blank" rel="noopener noreferrer">
             <Button size="lg" className="gap-2 font-heading font-semibold">
               <CreditCard className="h-5 w-5" />
-              {hasDeposit ? `Betala deposition (${totalDeposit.toLocaleString('sv-SE')} kr)` : 'Betala med kort'}
+              {hasDeposit ? `Betala med kort (${totalDeposit.toLocaleString('sv-SE')} kr)` : 'Betala med kort'}
             </Button>
           </a>
         )}
