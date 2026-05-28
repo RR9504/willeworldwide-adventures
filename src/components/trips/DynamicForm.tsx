@@ -182,13 +182,8 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
                 {totalPeople > 1 ? 'Era anmälningar är inte giltiga' : 'Din anmälan är inte giltig'} förrän depositionen är betald
               </p>
               <p className="text-sm text-yellow-700">
-                Ditt pris: <span className="font-bold">{priceDisplay}</span>
+                Ditt pris{tbdLabels.length > 0 ? ` (exklusive ${tbdLabels.join(', ')})` : ''}: <span className="font-bold">{priceDisplay}</span>
               </p>
-              {tbdLabels.length > 0 && (
-                <p className="text-xs italic text-yellow-700">
-                  Tillkommande pris meddelas senare för: {tbdLabels.join(', ')}.
-                </p>
-              )}
               <p className="text-sm text-yellow-700">
                 {totalPeople > 1 ? (
                   <>Betala depositionen på <span className="font-bold">{totalDeposit.toLocaleString('sv-SE')} SEK</span> ({totalPeople} × {depositPerPerson.toLocaleString('sv-SE')} SEK) för att bekräfta bokningen.</>
@@ -196,14 +191,17 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
                   <>Betala depositionen på <span className="font-bold">{depositPerPerson.toLocaleString('sv-SE')} SEK</span> för att bekräfta din bokning.</>
                 )}
               </p>
-              {(remainingAfterDeposit != null && remainingAfterDeposit > 0 || otherCurrencies.length > 0) && (
-                <p className="text-xs text-yellow-600">
-                  Resterande belopp ({[
-                    remainingAfterDeposit && remainingAfterDeposit > 0 ? `${remainingAfterDeposit.toLocaleString('sv-SE')} SEK` : null,
-                    ...otherCurrencies.map(([cur, amount]) => `${amount.toLocaleString('sv-SE')} ${cur}`),
-                  ].filter(Boolean).join(' + ')}) betalas senare.
-                </p>
-              )}
+              {(() => {
+                const parts: string[] = [];
+                if (remainingAfterDeposit != null && remainingAfterDeposit > 0) parts.push(`${remainingAfterDeposit.toLocaleString('sv-SE')} SEK`);
+                otherCurrencies.forEach(([cur, amount]) => parts.push(`${amount.toLocaleString('sv-SE')} ${cur}`));
+                const remainingStr = parts.length > 0 ? `Resterande belopp (${parts.join(' + ')})` : '';
+                const tbdStr = tbdLabels.length > 0 ? `pris för ${tbdLabels.join(', ')}` : '';
+                const combined = [remainingStr, tbdStr].filter(Boolean).join(' + ');
+                if (!combined) return null;
+                const tail = tbdLabels.length > 0 ? 'tillkommer på slutfakturan' : 'betalas senare';
+                return <p className="text-xs text-yellow-600">{combined} {tail}.</p>;
+              })()}
             </div>
           </>
         ) : (
@@ -415,7 +413,10 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
         <div className="rounded-lg bg-accent p-4 text-center space-y-1">
           {dynamicTotal > 0 && (hasModifiers || totalPeople > 1) && (
             <>
-              <p className="text-sm text-muted-foreground">{totalPeople > 1 ? `Totalt för ${totalPeople} resenärer` : 'Ditt pris'}</p>
+              <p className="text-sm text-muted-foreground">
+                {totalPeople > 1 ? `Totalt för ${totalPeople} resenärer` : 'Ditt pris'}
+                {tbdLabels.length > 0 ? ` (exklusive ${tbdLabels.join(', ')})` : ''}
+              </p>
               <p className="font-heading text-xl font-bold">
                 {dynamicTotal.toLocaleString('sv-SE')} SEK
                 {otherCurrencies.map(([cur, amount]) => (
@@ -426,7 +427,7 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
           )}
           {tbdLabels.length > 0 && (
             <p className="text-xs italic text-muted-foreground">
-              Tillkommande pris meddelas senare för: {tbdLabels.join(', ')}.
+              Pris för {tbdLabels.join(', ')} tillkommer på slutfakturan.
             </p>
           )}
           {paymentInfo?.deposit && paymentInfo.deposit > 0 && dynamicTotal > 0 && (

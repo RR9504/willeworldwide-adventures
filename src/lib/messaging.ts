@@ -57,23 +57,29 @@ export function buildOrderConfirmationEmail(
 
   let message = `Hej ${firstName}!\n\n`;
 
+  const hasTbd = tbdLabels && tbdLabels.length > 0;
+  const tbdSuffix = hasTbd ? ` (exklusive ${tbdLabels.join(', ')})` : '';
+
   if (isFullyPaid) {
     message += `Tack för din betalning av ${tripTitle}. Din resa är nu helt betald och din plats är bekräftad.`;
   } else if (hasDeposit) {
     message += `Tack! Vi har mottagit din deposition på ${deposit.toLocaleString('sv-SE')} SEK för ${tripTitle}. Din plats är nu bekräftad.`;
-    message += `\n\nDitt totalpris: ${priceStr}`;
-    if (totalSek > deposit || otherCurrencies.length > 0) {
+    message += `\n\nDitt totalpris${tbdSuffix}: ${priceStr}`;
+    if (totalSek > deposit || otherCurrencies.length > 0 || hasTbd) {
       const parts: string[] = [];
       if (totalSek > deposit) parts.push(`${(totalSek - deposit).toLocaleString('sv-SE')} SEK`);
       otherCurrencies.forEach(([cur, amount]) => parts.push(`${amount.toLocaleString('sv-SE')} ${cur}`));
-      message += `\nResterande belopp (${parts.join(' + ')}) betalas senare. Vi återkommer med information om detta.`;
+      const remainingStr = parts.length > 0 ? `Resterande belopp (${parts.join(' + ')})` : '';
+      const tbdStr = hasTbd ? `pris för ${tbdLabels.join(', ')}` : '';
+      const combined = [remainingStr, tbdStr].filter(Boolean).join(' + ');
+      const tail = hasTbd ? 'tillkommer på slutfakturan. Vi återkommer med information om detta.' : 'betalas senare. Vi återkommer med information om detta.';
+      message += `\n${combined} ${tail}`;
     }
   } else {
     message += `Tack för din bokning av ${tripTitle}. Vi har mottagit din betalning och din plats är nu bekräftad.`;
-  }
-
-  if (tbdLabels && tbdLabels.length > 0) {
-    message += `\n\nObs: Priser för följande tillkommer och meddelas senare: ${tbdLabels.join(', ')}.`;
+    if (hasTbd) {
+      message += `\n\nObs: pris för ${tbdLabels.join(', ')} tillkommer på slutfakturan.`;
+    }
   }
 
   message += `\n\nVi återkommer med mer information inför resan.\n\nVarma hälsningar,\nWille Worldwide`;
@@ -226,9 +232,10 @@ export function buildRegistrationEmail(params: RegistrationEmailParams): { subje
     priceStr += otherCurrencies.map(([cur, amount]) => ` + ${amount.toLocaleString('sv-SE')} ${cur}`).join('');
   }
 
-  let message = `Hej ${firstName}!\n\nVi har tagit emot din anmälan till ${tripTitle}.\n\nDitt pris: ${priceStr}\n`;
+  const tbdSuffix = tbdLabels && tbdLabels.length > 0 ? ` (exklusive ${tbdLabels.join(', ')})` : '';
+  let message = `Hej ${firstName}!\n\nVi har tagit emot din anmälan till ${tripTitle}.\n\nDitt pris${tbdSuffix}: ${priceStr}\n`;
   if (tbdLabels && tbdLabels.length > 0) {
-    message += `(Priser för ${tbdLabels.join(', ')} tillkommer och meddelas senare.)\n`;
+    message += `Pris för ${tbdLabels.join(', ')} tillkommer på slutfakturan.\n`;
   }
   message += `\n`;
 
@@ -243,13 +250,16 @@ export function buildRegistrationEmail(params: RegistrationEmailParams): { subje
       message += `Betala med kort: ${vivaUrl}\n\n`;
     }
 
-    if (totalSek > deposit || otherCurrencies.length > 0) {
-      let remaining = `Resterande belopp (`;
+    const hasTbd = tbdLabels && tbdLabels.length > 0;
+    if (totalSek > deposit || otherCurrencies.length > 0 || hasTbd) {
       const parts: string[] = [];
       if (totalSek > deposit) parts.push(`${(totalSek - deposit).toLocaleString('sv-SE')} SEK`);
       otherCurrencies.forEach(([cur, amount]) => parts.push(`${amount.toLocaleString('sv-SE')} ${cur}`));
-      remaining += parts.join(' + ') + `) betalas senare.\n\n`;
-      message += remaining;
+      const remainingStr = parts.length > 0 ? `Resterande belopp (${parts.join(' + ')})` : '';
+      const tbdStr = hasTbd ? `pris för ${tbdLabels.join(', ')}` : '';
+      const combined = [remainingStr, tbdStr].filter(Boolean).join(' + ');
+      const tail = hasTbd ? 'tillkommer på slutfakturan' : 'betalas senare';
+      message += `${combined} ${tail}.\n\n`;
     }
 
     message += `Vi bekräftar din bokning när depositionen är mottagen.`;

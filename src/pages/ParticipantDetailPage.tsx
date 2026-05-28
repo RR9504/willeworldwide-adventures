@@ -161,7 +161,7 @@ const ParticipantDetailPage = () => {
                 </div>
                 {tbdLabels.length > 0 && (
                   <p className="text-xs italic text-muted-foreground -mt-1">
-                    + pris för {tbdLabels.join(', ')} meddelas senare
+                    + pris för {tbdLabels.join(', ')} tillkommer på slutfakturan
                   </p>
                 )}
                 {reg.payment_note && (<div><span className="text-sm text-muted-foreground">Anteckning</span><p className="mt-1 text-sm">{reg.payment_note}</p></div>)}
@@ -247,7 +247,7 @@ const ParticipantDetailPage = () => {
                   </div>
                   {tbdLabels.length > 0 && (
                     <p className="text-xs italic text-muted-foreground">
-                      + pris för {tbdLabels.join(', ')} meddelas senare
+                      + pris för {tbdLabels.join(', ')} tillkommer på slutfakturan
                     </p>
                   )}
                   {reg.payment_status === 'paid' ? (

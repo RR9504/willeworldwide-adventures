@@ -85,15 +85,28 @@ describe("price tbd (meddelas senare)", () => {
     expect(calcMinRequiredExtraSek([roomField])).toBe(0);
   });
 
-  it("mentions tbd labels in the registration email", () => {
+  it("mentions tbd labels as exklusive in the registration email", () => {
     const { message } = buildRegistrationEmail({
       firstName: "Anna",
       tripTitle: "Test",
       totalPrice: 1000,
       tbdLabels: ["Rumstyp", "Liftkort"],
     });
-    expect(message).toContain("Rumstyp, Liftkort");
-    expect(message).toContain("meddelas senare");
+    expect(message).toContain("Ditt pris (exklusive Rumstyp, Liftkort)");
+    expect(message).toContain("tillkommer på slutfakturan");
+  });
+
+  it("combines remaining amount and tbd in the deposit case", () => {
+    const { message } = buildRegistrationEmail({
+      firstName: "Anna",
+      tripTitle: "Test",
+      totalPrice: 12800,
+      deposit: 3000,
+      tbdLabels: ["Liftkort"],
+    });
+    // 12800 - 3000 = 9800 kvar + pris för Liftkort, allt på slutfakturan
+    // (regex för att hantera non-breaking space i toLocaleString)
+    expect(message).toMatch(/Resterande belopp \(9.800 SEK\) \+ pris för Liftkort tillkommer på slutfakturan/);
   });
 });
 
