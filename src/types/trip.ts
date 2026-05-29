@@ -88,6 +88,8 @@ export interface Registration {
   presentation_data?: Record<string, string>;
   payment_status: PaymentStatus;
   payment_note?: string;
+  /** AI-genererad presentation av deltagaren, byggd från lära känna-svaren. */
+  ai_summary?: string;
   created_at: string;
   updated_at: string;
 }

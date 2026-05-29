@@ -1,6 +1,33 @@
 // Edge functions hosted on separate Supabase project
 const EDGE_FUNCTIONS_URL = 'https://seprpsyzqmppsnmzptyo.supabase.co';
 
+export interface SummaryAnswer {
+  question: string;
+  answer: string;
+}
+
+export async function generateAiSummary(params: { name: string; tripTitle?: string; answers: SummaryAnswer[] }): Promise<{ success: boolean; summary?: string; error?: string }> {
+  try {
+    const res = await fetch(`${EDGE_FUNCTIONS_URL}/functions/v1/ai-summary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    let data: { success?: boolean; summary?: string; error?: string } = {};
+    try {
+      data = await res.json();
+    } catch {
+      return { success: false, error: `Oväntat svar från servern (HTTP ${res.status}).` };
+    }
+    if (!res.ok || data.success === false || !data.summary) {
+      return { success: false, error: data.error || `HTTP ${res.status}` };
+    }
+    return { success: true, summary: data.summary };
+  } catch (err) {
+    return { success: false, error: `Kunde inte nå AI-tjänsten: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 interface Recipient {
   name: string;
   email?: string;

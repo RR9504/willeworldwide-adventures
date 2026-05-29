@@ -12,6 +12,7 @@ function mapRegistration(row: any): Registration {
       : undefined,
     payment_status: row.payment_status as PaymentStatus,
     payment_note: row.payment_note ?? undefined,
+    ai_summary: row.ai_summary ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -106,12 +107,13 @@ export function useDeleteRegistration() {
 export function useUpdateRegistration() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; payment_status?: PaymentStatus; payment_note?: string; presentation_data?: Record<string, string> }) => {
+    mutationFn: async ({ id, ...updates }: { id: string; payment_status?: PaymentStatus; payment_note?: string; presentation_data?: Record<string, string>; ai_summary?: string | null }) => {
       const rows = await sql`
         UPDATE registrations SET
           payment_status = COALESCE(${updates.payment_status ?? null}, payment_status),
           payment_note = COALESCE(${updates.payment_note ?? null}, payment_note),
-          presentation_data = COALESCE(${updates.presentation_data ? JSON.stringify(updates.presentation_data) : null}, presentation_data)
+          presentation_data = COALESCE(${updates.presentation_data ? JSON.stringify(updates.presentation_data) : null}, presentation_data),
+          ai_summary = COALESCE(${updates.ai_summary ?? null}, ai_summary)
         WHERE id = ${id}
         RETURNING *
       `;
