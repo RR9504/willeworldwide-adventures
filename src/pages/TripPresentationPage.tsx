@@ -4,11 +4,18 @@ import { ArrowLeft, Printer, Loader2, Sparkles, FileSpreadsheet, RefreshCw } fro
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import Header from '@/components/layout/Header';
 import { useTrip, useRegistrations, useUpdateRegistration } from '@/hooks/useTrips';
 import { generateAiSummary } from '@/lib/messaging';
 import { Registration } from '@/types/trip';
 import { toast } from 'sonner';
+
+// Samtidiga AI-anrop vid mass-generering — håller oss under Anthropics rate-limits men ger ~5× speedup.
+const BATCH_CONCURRENCY = 5;
 
 const TripPresentationPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +23,7 @@ const TripPresentationPage = () => {
   const { data: registrations = [], isLoading: regsLoading } = useRegistrations(id);
   const updateRegistration = useUpdateRegistration();
   const [genInProgress, setGenInProgress] = useState<Set<string>>(new Set());
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
 
   if (tripLoading || regsLoading) {
     return (<div className="flex min-h-screen flex-col bg-muted/30"><Header /><div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></div>);
@@ -28,40 +36,57 @@ const TripPresentationPage = () => {
   const withPresentation = registrations.filter(r => r.presentation_data && Object.keys(r.presentation_data).length > 0);
   const missingSummaryCount = withPresentation.filter(r => !r.ai_summary).length;
 
-  const generateOne = async (reg: Registration) => {
-    if (!reg.presentation_data) return;
+  // Returnerar true vid lyckad generering, false annars. `silent` undertrycker per-deltagare-toasts (batch hanterar feedback samlat).
+  const generateOne = async (reg: Registration, silent = false): Promise<boolean> => {
+    if (!reg.presentation_data) return false;
     setGenInProgress(prev => new Set(prev).add(reg.id));
+    const name = `${reg.form_data['Förnamn'] || ''} ${reg.form_data['Efternamn'] || ''}`.trim() || 'Deltagare';
     try {
-      const name = `${reg.form_data['Förnamn'] || ''} ${reg.form_data['Efternamn'] || ''}`.trim() || 'Deltagare';
       const answers = trip.presentation_fields
         .map(pf => ({ question: pf.question, answer: reg.presentation_data?.[pf.question] || '' }))
         .filter(a => a.answer.trim() !== '');
       const result = await generateAiSummary({ name, tripTitle: trip.title, answers });
       if (!result.success || !result.summary) {
-        toast.error(`Kunde inte generera för ${name}: ${result.error || 'okänt fel'}`);
-        return;
+        if (!silent) toast.error(`Kunde inte generera för ${name}: ${result.error || 'okänt fel'}`);
+        return false;
       }
       await updateRegistration.mutateAsync({ id: reg.id, ai_summary: result.summary });
-      toast.success(`Sammanfattning klar för ${name}`);
+      if (!silent) toast.success(`Sammanfattning klar för ${name}`);
+      return true;
     } catch (err) {
-      toast.error(`Oväntat fel: ${err instanceof Error ? err.message : String(err)}`);
+      if (!silent) toast.error(`Oväntat fel för ${name}: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
     } finally {
       setGenInProgress(prev => { const next = new Set(prev); next.delete(reg.id); return next; });
     }
   };
 
-  const generateMissing = async () => {
-    const missing = withPresentation.filter(r => !r.ai_summary);
-    if (missing.length === 0) {
-      toast.info('Alla har redan en sammanfattning');
+  // Kör generateOne på en lista deltagare med begränsad parallellitet och live-progress.
+  const generateBatch = async (regs: Registration[], action: string) => {
+    if (regs.length === 0) {
+      toast.info('Inget att generera');
       return;
     }
-    toast.info(`Genererar för ${missing.length} deltagare …`);
-    // Sekventiellt — för att inte hamra API:t och slippa rate-limit
-    for (const reg of missing) {
-      await generateOne(reg);
+    setBatchProgress({ done: 0, total: regs.length });
+    let okCount = 0;
+    let failCount = 0;
+    try {
+      for (let i = 0; i < regs.length; i += BATCH_CONCURRENCY) {
+        const chunk = regs.slice(i, i + BATCH_CONCURRENCY);
+        const results = await Promise.all(chunk.map(r => generateOne(r, true)));
+        results.forEach(ok => ok ? okCount++ : failCount++);
+        setBatchProgress({ done: Math.min(i + BATCH_CONCURRENCY, regs.length), total: regs.length });
+      }
+      if (failCount === 0) toast.success(`${action}: ${okCount} sammanfattningar klara`);
+      else if (okCount === 0) toast.error(`${action} misslyckades för alla ${failCount} deltagare`);
+      else toast.warning(`${action}: ${okCount} klara, ${failCount} misslyckades`);
+    } finally {
+      setBatchProgress(null);
     }
   };
+
+  const generateMissing = () => generateBatch(withPresentation.filter(r => !r.ai_summary), 'Saknade');
+  const regenerateAll = () => generateBatch(withPresentation, 'Genererat om');
 
   const exportExcel = () => {
     if (withPresentation.length === 0) {
@@ -101,12 +126,45 @@ const TripPresentationPage = () => {
           </Link>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted-foreground">{withPresentation.length} av {registrations.length} har svarat</span>
-            {missingSummaryCount > 0 && (
-              <Button variant="outline" size="sm" onClick={generateMissing} disabled={genInProgress.size > 0} className="gap-2">
-                {genInProgress.size > 0 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Generera {missingSummaryCount} saknade
-              </Button>
+
+            {/* Generera saknade — alltid synlig men greyad när 0 */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={generateMissing}
+              disabled={missingSummaryCount === 0 || !!batchProgress}
+              className="gap-2"
+            >
+              {batchProgress ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Genererar {batchProgress.done}/{batchProgress.total}…</>
+              ) : (
+                <><Sparkles className="h-4 w-4" /> Generera {missingSummaryCount > 0 ? `${missingSummaryCount} ` : ''}saknade</>
+              )}
+            </Button>
+
+            {/* Generera om alla — med bekräftelse eftersom befintliga skrivs över */}
+            {withPresentation.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2" disabled={!!batchProgress}>
+                    <RefreshCw className="h-4 w-4" /> Generera om alla
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Generera om alla sammanfattningar?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Alla <strong>{withPresentation.length}</strong> befintliga AI-sammanfattningar skrivs över med nya. Detta går inte att ångra.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                    <AlertDialogAction onClick={regenerateAll}>Ja, generera om alla</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
+
             <Button variant="outline" size="sm" onClick={exportExcel} className="gap-2">
               <FileSpreadsheet className="h-4 w-4" /> Exportera Excel
             </Button>
