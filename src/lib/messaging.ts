@@ -13,6 +13,9 @@ export async function generateAiSummary(params: { name: string; tripTitle?: stri
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
+    if (res.status === 404) {
+      return { success: false, error: 'Edge function "ai-summary" är inte deployad till Supabase än.' };
+    }
     let data: { success?: boolean; summary?: string; error?: string } = {};
     try {
       data = await res.json();
@@ -24,7 +27,12 @@ export async function generateAiSummary(params: { name: string; tripTitle?: stri
     }
     return { success: true, summary: data.summary };
   } catch (err) {
-    return { success: false, error: `Kunde inte nå AI-tjänsten: ${err instanceof Error ? err.message : String(err)}` };
+    // CORS-preflight 404 från Supabase ser ut som "Failed to fetch" i webbläsaren — sannolikt att funktionen saknas.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      return { success: false, error: 'Kunde inte nå AI-tjänsten — kontrollera att edge function "ai-summary" är deployad och att Supabase-projektet är aktivt.' };
+    }
+    return { success: false, error: `Kunde inte nå AI-tjänsten: ${msg}` };
   }
 }
 
@@ -62,7 +70,11 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
     return { success: true };
   } catch (err) {
     // Nätverksfel, DNS-fel (Supabase-projekt pausat), CORS — returnera tydligt fel istället för att kasta vidare.
-    return { success: false, error: `Kunde inte nå mejl/SMS-tjänsten: ${err instanceof Error ? err.message : String(err)}` };
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      return { success: false, error: 'Kunde inte nå mejl/SMS-tjänsten — kontrollera att Supabase-projektet är aktivt och att edge function "send-message" är deployad.' };
+    }
+    return { success: false, error: `Kunde inte nå mejl/SMS-tjänsten: ${msg}` };
   }
 }
 
