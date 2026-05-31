@@ -1,14 +1,20 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2, Receipt, Printer, CheckCircle2, Send, Mail, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2, Receipt, Printer, CheckCircle2, Send, Mail, Trash2, Pencil, Save, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import Header from '@/components/layout/Header';
 import { useTrip, useRegistrations, useUpdateRegistration, useDeleteRegistration } from '@/hooks/useTrips';
 import { Button } from '@/components/ui/button';
-import { PaymentStatus } from '@/types/trip';
+import { PaymentStatus, FormField, ConditionalField } from '@/types/trip';
 import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels } from '@/lib/messaging';
 import { toast } from 'sonner';
 
@@ -30,6 +36,10 @@ const ParticipantDetailPage = () => {
   const reg = registrations.find(r => r.id === regId);
   const updateRegistration = useUpdateRegistration();
   const deleteRegistration = useDeleteRegistration();
+  const [editingBooking, setEditingBooking] = useState(false);
+  const [bookingDraft, setBookingDraft] = useState<Record<string, any>>({});
+  const [editingPresentation, setEditingPresentation] = useState(false);
+  const [presentationDraft, setPresentationDraft] = useState<Record<string, string>>({});
 
   if (tripLoading || regsLoading) {
     return (<div className="flex min-h-screen flex-col"><Header /><div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div></div>);
@@ -49,6 +59,58 @@ const ParticipantDetailPage = () => {
   const tbdLabels = collectTbdLabels(trip.form_fields, reg.form_data);
   const formatPrice = (sek: number) =>
     [`${sek.toLocaleString('sv-SE')} ${trip.currency}`, ...otherCurrencies.map(([cur, amount]) => `${amount.toLocaleString('sv-SE')} ${cur}`)].join(' + ');
+
+  // Returnerar en input-rad för admin-redigering — input-typ matchar fältets type.
+  const renderEditableField = (
+    field: FormField | (ConditionalField & { id?: string }),
+    data: Record<string, any>,
+    update: (label: string, value: any) => void,
+  ) => {
+    const v = data[field.label];
+    let control: React.ReactNode = null;
+    if (field.type === 'select' && field.options) {
+      control = (
+        <Select value={typeof v === 'string' ? v : ''} onValueChange={value => update(field.label, value)}>
+          <SelectTrigger><SelectValue placeholder="Välj…" /></SelectTrigger>
+          <SelectContent>
+            {field.options.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      );
+    } else if (field.type === 'textarea') {
+      control = <Textarea value={v || ''} onChange={e => update(field.label, e.target.value)} />;
+    } else if (field.type === 'checkbox') {
+      control = (
+        <div className="flex items-center gap-2">
+          <Checkbox checked={!!v} onCheckedChange={c => update(field.label, !!c)} />
+          <span className="text-sm text-muted-foreground">{v ? 'Ja' : 'Nej'}</span>
+        </div>
+      );
+    } else {
+      control = (
+        <Input
+          type={field.type === 'phone' ? 'tel' : field.type === 'email' ? 'email' : 'text'}
+          value={v ?? ''}
+          onChange={e => update(field.label, e.target.value)}
+        />
+      );
+    }
+    // Visa villkorade underfält när moderkryssrutan är ikryssad
+    const subfields = field.type === 'checkbox' && v && 'conditionalFields' in field && field.conditionalFields
+      ? field.conditionalFields
+      : [];
+    return (
+      <div key={field.label} className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">{field.label}</Label>
+        {control}
+        {subfields.length > 0 && (
+          <div className="ml-3 mt-2 space-y-3 border-l-2 border-primary/20 pl-3">
+            {subfields.map(cf => renderEditableField(cf, data, update))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
@@ -99,33 +161,77 @@ const ParticipantDetailPage = () => {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><User className="h-5 w-5 text-primary" /> Bokningsinformation</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="flex items-center gap-2 text-lg"><User className="h-5 w-5 text-primary" /> Bokningsinformation</CardTitle>
+              {!editingBooking ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => { setBookingDraft({ ...reg.form_data }); setEditingBooking(true); }}
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Redigera
+                </Button>
+              ) : (
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setEditingBooking(false)} disabled={updateRegistration.isPending}>
+                    <X className="h-3.5 w-3.5" /> Avbryt
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={updateRegistration.isPending}
+                    onClick={async () => {
+                      try {
+                        await updateRegistration.mutateAsync({ id: reg.id, form_data: bookingDraft });
+                        toast.success('Bokningsuppgifter uppdaterade');
+                        setEditingBooking(false);
+                      } catch (err) {
+                        toast.error(`Kunde inte spara: ${err instanceof Error ? err.message : String(err)}`);
+                      }
+                    }}
+                  >
+                    {updateRegistration.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Spara
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {trip.form_fields.map(field => {
-                  const val = reg.form_data[field.label];
-                  const displayVal = val === true ? 'Ja' : val === false ? 'Nej' : val ?? '–';
-                  return (
-                    <div key={field.id} className="flex items-start justify-between gap-4">
-                      <span className="text-sm text-muted-foreground">{field.label}</span>
-                      <span className="text-sm font-medium text-right">{String(displayVal)}</span>
-                    </div>
-                  );
-                })}
-                {trip.form_fields
-                  .filter(f => f.conditionalFields && reg.form_data[f.label])
-                  .flatMap(f => f.conditionalFields || [])
-                  .map((cf, idx) => {
-                    const val = reg.form_data[cf.label];
-                    if (!val) return null;
+              {!editingBooking ? (
+                <div className="space-y-3">
+                  {trip.form_fields.map(field => {
+                    const val = reg.form_data[field.label];
+                    // Visa option-etikett istället för dess interna "value"
+                    const labelFromOption = field.type === 'select' ? field.options?.find(o => o.value === val)?.label : undefined;
+                    const displayVal = val === true ? 'Ja' : val === false ? 'Nej' : (labelFromOption ?? val ?? '–');
                     return (
-                      <div key={`cf-${idx}`} className="flex items-start justify-between gap-4 pl-4 border-l-2 border-primary/20">
-                        <span className="text-sm text-muted-foreground">{cf.label}</span>
-                        <span className="text-sm font-medium text-right">{String(val)}</span>
+                      <div key={field.id} className="flex items-start justify-between gap-4">
+                        <span className="text-sm text-muted-foreground">{field.label}</span>
+                        <span className="text-sm font-medium text-right">{String(displayVal)}</span>
                       </div>
                     );
                   })}
-              </div>
+                  {trip.form_fields
+                    .filter(f => f.conditionalFields && reg.form_data[f.label])
+                    .flatMap(f => (f.conditionalFields || []).map(cf => ({ cf, parent: f })))
+                    .map(({ cf, parent }, idx) => {
+                      const val = reg.form_data[cf.label];
+                      if (!val) return null;
+                      const labelFromOption = cf.type === 'select' ? cf.options?.find(o => o.value === val)?.label : undefined;
+                      return (
+                        <div key={`cf-${parent.id}-${idx}`} className="flex items-start justify-between gap-4 pl-4 border-l-2 border-primary/20">
+                          <span className="text-sm text-muted-foreground">{cf.label}</span>
+                          <span className="text-sm font-medium text-right">{labelFromOption ?? String(val)}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {trip.form_fields.map(field => renderEditableField(field, bookingDraft, (label, value) => setBookingDraft(prev => ({ ...prev, [label]: value }))))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -297,14 +403,70 @@ const ParticipantDetailPage = () => {
           </div>
 
           <Card className="lg:col-span-2">
-            <CardHeader><CardTitle className="flex items-center gap-2 text-lg"><MessageCircle className="h-5 w-5 text-primary" /> Lär känna – svar</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="flex items-center gap-2 text-lg"><MessageCircle className="h-5 w-5 text-primary" /> Lär känna – svar</CardTitle>
+              {!editingPresentation ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => { setPresentationDraft({ ...(reg.presentation_data || {}) }); setEditingPresentation(true); }}
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Redigera
+                </Button>
+              ) : (
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setEditingPresentation(false)} disabled={updateRegistration.isPending}>
+                    <X className="h-3.5 w-3.5" /> Avbryt
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={updateRegistration.isPending}
+                    onClick={async () => {
+                      try {
+                        await updateRegistration.mutateAsync({ id: reg.id, presentation_data: presentationDraft });
+                        toast.success('Lära känna-svar uppdaterade');
+                        setEditingPresentation(false);
+                      } catch (err) {
+                        toast.error(`Kunde inte spara: ${err instanceof Error ? err.message : String(err)}`);
+                      }
+                    }}
+                  >
+                    {updateRegistration.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Spara
+                  </Button>
+                </div>
+              )}
+            </CardHeader>
             <CardContent>
-              {hasPresentationData ? (
+              {editingPresentation ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {trip.presentation_fields.map(pf => (
+                    <div key={pf.id} className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">{pf.question}</Label>
+                      {pf.type === 'textarea' ? (
+                        <Textarea
+                          placeholder={pf.placeholder}
+                          value={presentationDraft[pf.question] || ''}
+                          onChange={e => setPresentationDraft(prev => ({ ...prev, [pf.question]: e.target.value }))}
+                        />
+                      ) : (
+                        <Input
+                          placeholder={pf.placeholder}
+                          value={presentationDraft[pf.question] || ''}
+                          onChange={e => setPresentationDraft(prev => ({ ...prev, [pf.question]: e.target.value }))}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : hasPresentationData ? (
                 <div className="grid gap-4 md:grid-cols-2">
                   {trip.presentation_fields.map(pf => {
                     const answer = reg.presentation_data?.[pf.question];
                     if (!answer) return null;
-                    return (<div key={pf.id} className="space-y-1"><p className="text-sm font-medium text-muted-foreground">{pf.question}</p><p className="text-sm">{answer}</p></div>);
+                    return (<div key={pf.id} className="space-y-1"><p className="text-sm font-medium text-muted-foreground">{pf.question}</p><p className="text-sm whitespace-pre-line">{answer}</p></div>);
                   })}
                 </div>
               ) : (
