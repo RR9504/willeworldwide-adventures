@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2, Receipt, Printer, CheckCircle2, Send, Mail, Trash2, Pencil, Save, X } from 'lucide-react';
+import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2, Receipt, Printer, CheckCircle2, Send, Mail, Trash2, Pencil, Save, X, Copy } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -403,17 +403,32 @@ const ParticipantDetailPage = () => {
           </div>
 
           <Card className="lg:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="flex items-center gap-2 text-lg"><MessageCircle className="h-5 w-5 text-primary" /> Lär känna – svar</CardTitle>
               {!editingPresentation ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => { setPresentationDraft({ ...(reg.presentation_data || {}) }); setEditingPresentation(true); }}
-                >
-                  <Pencil className="h-3.5 w-3.5" /> Redigera
-                </Button>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5"
+                    title="Kopiera länken till lära känna-formuläret — skicka via SMS/WhatsApp/mejl"
+                    onClick={() => {
+                      const link = `${window.location.origin}/resa/${trip.id}/presentation/${reg.id}`;
+                      navigator.clipboard.writeText(link);
+                      toast.success('Länk kopierad');
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Kopiera länk
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => { setPresentationDraft({ ...(reg.presentation_data || {}) }); setEditingPresentation(true); }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Redigera
+                  </Button>
+                </div>
               ) : (
                 <div className="flex gap-1">
                   <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setEditingPresentation(false)} disabled={updateRegistration.isPending}>
