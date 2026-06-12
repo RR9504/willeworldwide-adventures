@@ -8,13 +8,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import Header from '@/components/layout/Header';
 import { useTrip, useRegistrations, useUpdateRegistration, useDeleteRegistration } from '@/hooks/useTrips';
 import { Button } from '@/components/ui/button';
-import { PaymentStatus, FormField, ConditionalField } from '@/types/trip';
+import { PaymentStatus } from '@/types/trip';
+import { EditableFormField } from '@/components/trips/EditableFormField';
 import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels } from '@/lib/messaging';
 import { toast } from 'sonner';
 
@@ -60,57 +59,6 @@ const ParticipantDetailPage = () => {
   const formatPrice = (sek: number) =>
     [`${sek.toLocaleString('sv-SE')} ${trip.currency}`, ...otherCurrencies.map(([cur, amount]) => `${amount.toLocaleString('sv-SE')} ${cur}`)].join(' + ');
 
-  // Returnerar en input-rad för admin-redigering — input-typ matchar fältets type.
-  const renderEditableField = (
-    field: FormField | (ConditionalField & { id?: string }),
-    data: Record<string, any>,
-    update: (label: string, value: any) => void,
-  ) => {
-    const v = data[field.label];
-    let control: React.ReactNode = null;
-    if (field.type === 'select' && field.options) {
-      control = (
-        <Select value={typeof v === 'string' ? v : ''} onValueChange={value => update(field.label, value)}>
-          <SelectTrigger><SelectValue placeholder="Välj…" /></SelectTrigger>
-          <SelectContent>
-            {field.options.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      );
-    } else if (field.type === 'textarea') {
-      control = <Textarea value={v || ''} onChange={e => update(field.label, e.target.value)} />;
-    } else if (field.type === 'checkbox') {
-      control = (
-        <div className="flex items-center gap-2">
-          <Checkbox checked={!!v} onCheckedChange={c => update(field.label, !!c)} />
-          <span className="text-sm text-muted-foreground">{v ? 'Ja' : 'Nej'}</span>
-        </div>
-      );
-    } else {
-      control = (
-        <Input
-          type={field.type === 'phone' ? 'tel' : field.type === 'email' ? 'email' : 'text'}
-          value={v ?? ''}
-          onChange={e => update(field.label, e.target.value)}
-        />
-      );
-    }
-    // Visa villkorade underfält när moderkryssrutan är ikryssad
-    const subfields = field.type === 'checkbox' && v && 'conditionalFields' in field && field.conditionalFields
-      ? field.conditionalFields
-      : [];
-    return (
-      <div key={field.label} className="space-y-1.5">
-        <Label className="text-xs text-muted-foreground">{field.label}</Label>
-        {control}
-        {subfields.length > 0 && (
-          <div className="ml-3 mt-2 space-y-3 border-l-2 border-primary/20 pl-3">
-            {subfields.map(cf => renderEditableField(cf, data, update))}
-          </div>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
@@ -161,17 +109,32 @@ const ParticipantDetailPage = () => {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="flex items-center gap-2 text-lg"><User className="h-5 w-5 text-primary" /> Bokningsinformation</CardTitle>
               {!editingBooking ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => { setBookingDraft({ ...reg.form_data }); setEditingBooking(true); }}
-                >
-                  <Pencil className="h-3.5 w-3.5" /> Redigera
-                </Button>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5"
+                    title="Kopiera länken till anmälningsformuläret — skicka via SMS/WhatsApp/mejl"
+                    onClick={() => {
+                      const link = `${window.location.origin}/resa/${trip.id}/anmalan/${reg.id}`;
+                      navigator.clipboard.writeText(link);
+                      toast.success('Länk kopierad');
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Kopiera länk
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => { setBookingDraft({ ...reg.form_data }); setEditingBooking(true); }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Redigera
+                  </Button>
+                </div>
               ) : (
                 <div className="flex gap-1">
                   <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => setEditingBooking(false)} disabled={updateRegistration.isPending}>
@@ -229,7 +192,14 @@ const ParticipantDetailPage = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {trip.form_fields.map(field => renderEditableField(field, bookingDraft, (label, value) => setBookingDraft(prev => ({ ...prev, [label]: value }))))}
+                  {trip.form_fields.map(field => (
+                    <EditableFormField
+                      key={field.id}
+                      field={field}
+                      data={bookingDraft}
+                      onUpdate={(label, value) => setBookingDraft(prev => ({ ...prev, [label]: value }))}
+                    />
+                  ))}
                 </div>
               )}
             </CardContent>

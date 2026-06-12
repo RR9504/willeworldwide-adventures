@@ -11,6 +11,7 @@ import CreateTripPage from "./pages/CreateTripPage";
 import ParticipantDetailPage from "./pages/ParticipantDetailPage";
 import TripPresentationPage from "./pages/TripPresentationPage";
 import PresentationFormPage from "./pages/PresentationFormPage";
+import RegistrationEditPage from "./pages/RegistrationEditPage";
 import AlertListPage from "./pages/AlertListPage";
 import LoginPage from "./pages/LoginPage";
 import NotFound from "./pages/NotFound";
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/login" element={<LoginPage />} />
           <Route path="/resa/:id" element={<TripRegistrationPage />} />
           <Route path="/resa/:id/presentation/:regId" element={<PresentationFormPage />} />
+          <Route path="/resa/:id/anmalan/:regId" element={<RegistrationEditPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/alerts/:type" element={<AlertListPage />} />
