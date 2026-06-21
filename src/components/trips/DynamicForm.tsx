@@ -43,6 +43,7 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
   const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
   const [promoError, setPromoError] = useState('');
   const hasPromoCodes = !!promoCodes?.length;
+  const hasPresentation = presentationFields.length > 0;
 
   const totalPeople = 1 + companions.length;
 
