@@ -14,7 +14,7 @@ import { useTrip, useRegistrations, useUpdateRegistration, useDeleteRegistration
 import { Button } from '@/components/ui/button';
 import { PaymentStatus } from '@/types/trip';
 import { EditableFormField } from '@/components/trips/EditableFormField';
-import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels } from '@/lib/messaging';
+import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek } from '@/lib/messaging';
 import { toast } from 'sonner';
 
 const paymentLabels: Record<PaymentStatus, string> = {
@@ -51,10 +51,13 @@ const ParticipantDetailPage = () => {
   const name = `${reg.form_data['Förnamn'] || ''} ${reg.form_data['Efternamn'] || ''}`.trim() || 'Okänd';
   const hasPresentationData = reg.presentation_data && Object.keys(reg.presentation_data).length > 0;
 
-  // Slutpris = grundpris + prismodifierare från valda alternativ (t.ex. hotell)
+  // Slutpris = grundpris + prismodifierare från valda alternativ (t.ex. hotell) − ev. kampanjrabatt
   const extraCosts = calcExtraCostsFromFormData(trip.form_fields, reg.form_data);
   const otherCurrencies = Object.entries(extraCosts).filter(([k, v]) => k !== 'SEK' && v > 0);
-  const totalSek = trip.price + (extraCosts['SEK'] || 0);
+  const grossSek = trip.price + (extraCosts['SEK'] || 0);
+  const promo = findPromoCode(trip.promo_codes, reg.form_data['_promo_code']);
+  const promoDiscount = calcPromoDiscountSek(grossSek, promo);
+  const totalSek = Math.max(0, grossSek - promoDiscount);
   const tbdLabels = collectTbdLabels(trip.form_fields, reg.form_data);
   const formatPrice = (sek: number) =>
     [`${sek.toLocaleString('sv-SE')} ${trip.currency}`, ...otherCurrencies.map(([cur, amount]) => `${amount.toLocaleString('sv-SE')} ${cur}`)].join(' + ');
@@ -231,6 +234,12 @@ const ParticipantDetailPage = () => {
                     ))}
                   </div>
                 </div>
+                {promoDiscount > 0 && (
+                  <div className="flex items-center justify-between text-primary">
+                    <span className="text-sm">Kampanjkod {promo?.code}{promo?.label ? ` (${promo.label})` : ''}</span>
+                    <span className="text-sm font-medium">−{promoDiscount.toLocaleString('sv-SE')} {trip.currency}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Pris</span>
                   <span className="text-sm font-medium">{formatPrice(totalSek)}</span>
@@ -268,6 +277,8 @@ const ParticipantDetailPage = () => {
                           extraCosts,
                           isFullyPaid: reg.payment_status === 'paid',
                           tbdLabels,
+                          promoCode: promo?.code,
+                          promoDiscount,
                         });
                         try {
                           const result = await sendMessage({

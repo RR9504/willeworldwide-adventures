@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Eye, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Eye, Save, Loader2, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import Header from '@/components/layout/Header';
 import FormFieldList from '@/components/admin/FormFieldList';
 import FormPreview from '@/components/admin/FormPreview';
-import { Trip, TripCategory, TripStatus, TripDateRange, FormField, FormFieldType, PresentationQuestion } from '@/types/trip';
+import { Trip, TripCategory, TripStatus, TripDateRange, FormField, FormFieldType, PresentationQuestion, PromoCode } from '@/types/trip';
 import { useTrip, useSaveTrip } from '@/hooks/useTrips';
 import { formTemplates } from '@/data/formTemplates';
 import { toast } from 'sonner';
@@ -74,6 +74,7 @@ const CreateTripPage = () => {
   const [additionalDates, setAdditionalDates] = useState<TripDateRange[]>(existingTrip?.additional_dates || []);
   const [formFields, setFormFields] = useState<FormField[]>(existingTrip?.form_fields || defaultFormFields);
   const [presentationFields, setPresentationFields] = useState<PresentationQuestion[]>(existingTrip?.presentation_fields || defaultPresentationFields);
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>(existingTrip?.promo_codes || []);
   const [swishEnabled, setSwishEnabled] = useState(!!existingTrip?.payment_info?.swish);
   const [vivaEnabled, setVivaEnabled] = useState(!!existingTrip?.payment_info?.viva);
   const [swishNumber, setSwishNumber] = useState(existingTrip?.payment_info?.swish?.number || '123 672 47 36');
@@ -116,6 +117,16 @@ const CreateTripPage = () => {
       return;
     }
 
+    if (promoCodes.some(p => !p.code.trim())) {
+      toast.error('En kampanjkod saknar kod');
+      return;
+    }
+    const codeKeys = promoCodes.map(p => p.code.trim().toLowerCase());
+    if (new Set(codeKeys).size !== codeKeys.length) {
+      toast.error('Två kampanjkoder har samma kod');
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -137,6 +148,9 @@ const CreateTripPage = () => {
         form_fields: formFields,
         additional_dates: additionalDates.length > 0 ? additionalDates : undefined,
         presentation_fields: presentationFields,
+        promo_codes: promoCodes.length > 0
+          ? promoCodes.map(p => ({ ...p, code: p.code.trim(), label: p.label?.trim() || undefined }))
+          : undefined,
         payment_info: (swishEnabled || vivaEnabled || depositAmount) ? {
           ...(swishEnabled ? { swish: { number: swishNumber, name: swishName, amount: swishAmount ? Number(swishAmount) : undefined } } : {}),
           ...(vivaEnabled ? { viva: { url: vivaUrl, amount: vivaAmount ? Number(vivaAmount) : undefined } } : {}),
@@ -177,6 +191,9 @@ const CreateTripPage = () => {
             <TabsTrigger value="form">Anmälningsformulär</TabsTrigger>
             <TabsTrigger value="presentation">Lär känna-frågor</TabsTrigger>
             <TabsTrigger value="payment">Betalning</TabsTrigger>
+            <TabsTrigger value="promo" className="gap-1.5">
+              <Tag className="h-3.5 w-3.5" /> Kampanjkoder
+            </TabsTrigger>
             <TabsTrigger value="preview" className="gap-1.5">
               <Eye className="h-3.5 w-3.5" /> Förhandsgranska
             </TabsTrigger>
@@ -591,7 +608,105 @@ const CreateTripPage = () => {
             </Card>
           </TabsContent>
 
-          {/* Tab 5: Preview */}
+          {/* Tab 5: Promo codes */}
+          <TabsContent value="promo">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">Kampanjkoder</CardTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Skapa rabattkoder som kunden anger vid anmälan. Rabatten räknas på hela totalen
+                      (grundpris + tillval). En procentkod på 100% gör resan gratis — t.ex. för någon som
+                      jobbar på resan men ändå ska räknas in.
+                    </p>
+                  </div>
+                  <span className="rounded bg-muted px-2 py-1 text-sm text-muted-foreground">
+                    {promoCodes.length} koder
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {promoCodes.map((p, idx) => (
+                  <div key={idx} className="grid items-end gap-3 rounded-lg border p-3 sm:grid-cols-[1.2fr_1fr_0.9fr_1.4fr_auto]">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Kod</Label>
+                      <Input
+                        value={p.code}
+                        onChange={e => {
+                          const updated = [...promoCodes];
+                          updated[idx] = { ...p, code: e.target.value };
+                          setPromoCodes(updated);
+                        }}
+                        placeholder="t.ex. LOJAL20"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Rabattyp</Label>
+                      <Select
+                        value={p.type}
+                        onValueChange={(v: 'percent' | 'fixed') => {
+                          const updated = [...promoCodes];
+                          updated[idx] = { ...p, type: v };
+                          setPromoCodes(updated);
+                        }}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percent">Procent (%)</SelectItem>
+                          <SelectItem value="fixed">Fast belopp (kr)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">{p.type === 'percent' ? 'Procent' : 'Belopp (kr)'}</Label>
+                      <Input
+                        type="number"
+                        value={p.value || ''}
+                        onChange={e => {
+                          const updated = [...promoCodes];
+                          updated[idx] = { ...p, value: Number(e.target.value) || 0 };
+                          setPromoCodes(updated);
+                        }}
+                        placeholder={p.type === 'percent' ? '20' : '1000'}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Intern notering (valfritt)</Label>
+                      <Input
+                        value={p.label || ''}
+                        onChange={e => {
+                          const updated = [...promoCodes];
+                          updated[idx] = { ...p, label: e.target.value };
+                          setPromoCodes(updated);
+                        }}
+                        placeholder="t.ex. Lojal kund / Jobbar på resan"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 text-destructive hover:text-destructive"
+                      onClick={() => setPromoCodes(prev => prev.filter((_, i) => i !== idx))}
+                    >
+                      <span className="text-lg">×</span>
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPromoCodes(prev => [...prev, { code: '', type: 'percent', value: 0 }])}
+                  className="gap-1.5"
+                >
+                  <Plus className="h-3 w-3" /> Lägg till kampanjkod
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab 6: Preview */}
           <TabsContent value="preview">
             <FormPreview fields={formFields} tripTitle={title} />
           </TabsContent>

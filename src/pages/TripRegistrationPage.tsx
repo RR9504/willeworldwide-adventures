@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import DynamicForm, { SubmitMeta } from '@/components/trips/DynamicForm';
 import { useTrip, useRegistrations, useCreateRegistration, useCreateRegistrations } from '@/hooks/useTrips';
-import { sendMessage, buildRegistrationEmail, calcMinRequiredExtraSek } from '@/lib/messaging';
+import { sendMessage, buildRegistrationEmail, calcMinRequiredExtraSek, findPromoCode, calcPromoDiscountSek } from '@/lib/messaging';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -70,7 +70,11 @@ const TripRegistrationPage = () => {
     allPresentationData: Record<string, string>[],
     extraCosts: Record<string, number>,
     tbdLabels: string[],
+    promoCode?: string,
   ) => {
+    const promo = findPromoCode(trip.promo_codes, promoCode);
+    // Rabatten räknas på det varje mejl visar: grundpris + SEK-tillägg.
+    const promoDiscount = promo ? calcPromoDiscountSek(trip.price + (extraCosts['SEK'] || 0), promo) : 0;
     for (let i = 0; i < allFormData.length; i++) {
       const formData = allFormData[i];
       const presentationData = allPresentationData[i] || {};
@@ -89,6 +93,8 @@ const TripRegistrationPage = () => {
         vivaUrl: trip.payment_info?.viva?.url,
         paymentNote: trip.payment_info?.note,
         tbdLabels,
+        promoCode: promo?.code,
+        promoDiscount,
         formFields: trip.form_fields,
         formData,
         presentationFields: trip.presentation_fields,
@@ -109,28 +115,32 @@ const TripRegistrationPage = () => {
   const handleSubmit = async (data: Record<string, any>, companions?: Record<string, any>[], meta?: SubmitMeta) => {
     try {
       const groupId = companions?.length ? crypto.randomUUID() : undefined;
-      const mainData = groupId ? { ...data, _group_id: groupId } : data;
       const extraCosts = meta?.extraCosts || {};
       const tbdLabels = meta?.tbdLabels || [];
+      const promoCode = meta?.promoCode;
       const presentationData = meta?.presentationData || {};
       const companionPresentations = meta?.companionPresentations || [];
+
+      // Spara använd kampanjkod på varje anmälan så admin/mejl kan återskapa rabatten.
+      const withPromo = (d: Record<string, any>) => (promoCode ? { ...d, _promo_code: promoCode } : d);
+      const mainData = withPromo(groupId ? { ...data, _group_id: groupId } : data);
 
       if (companions && companions.length > 0) {
         const allRegs = [
           { trip_id: trip.id, form_data: mainData, presentation_data: presentationData },
           ...companions.map((c, idx) => ({
             trip_id: trip.id,
-            form_data: { ...c, _group_id: groupId },
+            form_data: withPromo({ ...c, _group_id: groupId }),
             presentation_data: companionPresentations[idx] || {},
           })),
         ];
         await createRegistrations.mutateAsync(allRegs);
         toast.success(`${allRegs.length} anmälningar skickade!`);
-        sendRegistrationEmails([mainData, ...companions], [presentationData, ...companionPresentations], extraCosts, tbdLabels);
+        sendRegistrationEmails([mainData, ...companions], [presentationData, ...companionPresentations], extraCosts, tbdLabels, promoCode);
       } else {
         await createRegistration.mutateAsync({ trip_id: trip.id, form_data: mainData, presentation_data: presentationData });
         toast.success('Anmälan skickad!');
-        sendRegistrationEmails([mainData], [presentationData], extraCosts, tbdLabels);
+        sendRegistrationEmails([mainData], [presentationData], extraCosts, tbdLabels, promoCode);
       }
     } catch {
       toast.error('Något gick fel. Försök igen.');
@@ -217,7 +227,7 @@ const TripRegistrationPage = () => {
                     <p className="mt-2 text-muted-foreground">Kontakta oss om du vill stå på väntelista.</p>
                   </div>
                 ) : (
-                  <DynamicForm fields={trip.form_fields} presentationFields={trip.presentation_fields} onSubmit={handleSubmit} paymentInfo={trip.payment_info} tripPrice={trip.price} />
+                  <DynamicForm fields={trip.form_fields} presentationFields={trip.presentation_fields} onSubmit={handleSubmit} paymentInfo={trip.payment_info} tripPrice={trip.price} promoCodes={trip.promo_codes} />
                 )}
               </CardContent>
             </Card>

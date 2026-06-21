@@ -81,12 +81,13 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
 export function buildOrderConfirmationEmail(
   firstName: string,
   tripTitle: string,
-  options?: { deposit?: number; totalPrice?: number; extraCosts?: Record<string, number>; isFullyPaid?: boolean; tbdLabels?: string[] },
+  options?: { deposit?: number; totalPrice?: number; extraCosts?: Record<string, number>; isFullyPaid?: boolean; tbdLabels?: string[]; promoCode?: string; promoDiscount?: number },
 ): { subject: string; message: string } {
-  const { deposit, totalPrice, extraCosts, isFullyPaid, tbdLabels } = options || {};
+  const { deposit, totalPrice, extraCosts, isFullyPaid, tbdLabels, promoCode, promoDiscount } = options || {};
   const hasDeposit = deposit && deposit > 0;
   const sekExtra = extraCosts?.['SEK'] || 0;
-  const totalSek = (totalPrice || 0) + sekExtra;
+  const discount = promoDiscount && promoDiscount > 0 ? promoDiscount : 0;
+  const totalSek = Math.max(0, (totalPrice || 0) + sekExtra - discount);
   const otherCurrencies = Object.entries(extraCosts || {}).filter(([k, v]) => k !== 'SEK' && v > 0);
 
   let priceStr = `${totalSek.toLocaleString('sv-SE')} SEK`;
@@ -103,7 +104,12 @@ export function buildOrderConfirmationEmail(
     message += `Tack för din betalning av ${tripTitle}. Din resa är nu helt betald och din plats är bekräftad.`;
   } else if (hasDeposit) {
     message += `Tack! Vi har mottagit din deposition på ${deposit.toLocaleString('sv-SE')} SEK för ${tripTitle}. Din plats är nu bekräftad.`;
-    message += `\n\nDitt totalpris${tbdSuffix}: ${priceStr}`;
+    if (discount > 0) {
+      message += `\n\nKampanjkod${promoCode ? ` ${promoCode}` : ''}: −${discount.toLocaleString('sv-SE')} SEK`;
+      message += `\nDitt totalpris${tbdSuffix}: ${priceStr}`;
+    } else {
+      message += `\n\nDitt totalpris${tbdSuffix}: ${priceStr}`;
+    }
     if (totalSek > deposit || otherCurrencies.length > 0 || hasTbd) {
       const parts: string[] = [];
       if (totalSek > deposit) parts.push(`${(totalSek - deposit).toLocaleString('sv-SE')} SEK`);
@@ -239,6 +245,30 @@ export function calcMinRequiredExtraSek(formFields: import('@/types/trip').FormF
   }, 0);
 }
 
+// Hittar en kampanjkod på resan som matchar den angivna koden (skiftlägesokänsligt, trimmat).
+export function findPromoCode(
+  promoCodes: import('@/types/trip').PromoCode[] | undefined,
+  code: string | undefined,
+): import('@/types/trip').PromoCode | undefined {
+  if (!promoCodes?.length || !code?.trim()) return undefined;
+  const norm = code.trim().toLowerCase();
+  return promoCodes.find(p => p.code.trim().toLowerCase() === norm);
+}
+
+// Rabattbelopp i SEK för en given total. Procent avrundas, fast belopp kapas till totalen.
+// Resultatet kan aldrig överstiga underlaget (totalen kan inte bli negativ).
+export function calcPromoDiscountSek(
+  totalSek: number,
+  promo: import('@/types/trip').PromoCode | undefined,
+): number {
+  if (!promo || totalSek <= 0) return 0;
+  if (promo.type === 'percent') {
+    const pct = Math.max(0, Math.min(100, promo.value));
+    return Math.min(totalSek, Math.round(totalSek * pct / 100));
+  }
+  return Math.min(totalSek, Math.max(0, promo.value));
+}
+
 interface RegistrationEmailParams {
   firstName: string;
   tripTitle: string;
@@ -249,6 +279,9 @@ interface RegistrationEmailParams {
   vivaUrl?: string;
   paymentNote?: string;
   tbdLabels?: string[];
+  // Kampanjkod + rabattbelopp i SEK (redan beräknat på personens total).
+  promoCode?: string;
+  promoDiscount?: number;
   // Sammanfattning av deltagarens svar — så kunden ser exakt vad hen angav.
   formFields?: import('@/types/trip').FormField[];
   formData?: Record<string, any>;
@@ -259,12 +292,13 @@ interface RegistrationEmailParams {
 export function buildRegistrationEmail(params: RegistrationEmailParams): { subject: string; message: string } {
   const {
     firstName, tripTitle, deposit, totalPrice, extraCosts, swish, vivaUrl, paymentNote, tbdLabels,
-    formFields, formData, presentationFields, presentationData,
+    promoCode, promoDiscount, formFields, formData, presentationFields, presentationData,
   } = params;
   const hasDeposit = deposit && deposit > 0;
   const otherCurrencies = Object.entries(extraCosts || {}).filter(([k, v]) => k !== 'SEK' && v > 0);
   const sekExtra = extraCosts?.['SEK'] || 0;
-  const totalSek = (totalPrice || 0) + sekExtra;
+  const discount = promoDiscount && promoDiscount > 0 ? promoDiscount : 0;
+  const totalSek = Math.max(0, (totalPrice || 0) + sekExtra - discount);
 
   let priceStr = `${totalSek.toLocaleString('sv-SE')} SEK`;
   if (otherCurrencies.length > 0) {
@@ -272,7 +306,11 @@ export function buildRegistrationEmail(params: RegistrationEmailParams): { subje
   }
 
   const tbdSuffix = tbdLabels && tbdLabels.length > 0 ? ` (exklusive ${tbdLabels.join(', ')})` : '';
-  let message = `Hej ${firstName}!\n\nVi har tagit emot din anmälan till ${tripTitle}.\n\nDitt pris${tbdSuffix}: ${priceStr}\n`;
+  let message = `Hej ${firstName}!\n\nVi har tagit emot din anmälan till ${tripTitle}.\n\n`;
+  if (discount > 0) {
+    message += `Kampanjkod${promoCode ? ` ${promoCode}` : ''}: −${discount.toLocaleString('sv-SE')} SEK\n`;
+  }
+  message += `Ditt pris${tbdSuffix}: ${priceStr}\n`;
   if (tbdLabels && tbdLabels.length > 0) {
     message += `Pris för ${tbdLabels.join(', ')} tillkommer på slutfakturan.\n`;
   }

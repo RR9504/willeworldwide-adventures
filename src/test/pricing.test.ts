@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { calcExtraCostsFromFormData, calcMinRequiredExtraSek, collectTbdLabels, buildRegistrationEmail, formatAnswersForEmail, formatPresentationForEmail } from "@/lib/messaging";
-import { FormField, PresentationQuestion } from "@/types/trip";
+import { calcExtraCostsFromFormData, calcMinRequiredExtraSek, collectTbdLabels, buildRegistrationEmail, formatAnswersForEmail, formatPresentationForEmail, findPromoCode, calcPromoDiscountSek } from "@/lib/messaging";
+import { FormField, PresentationQuestion, PromoCode } from "@/types/trip";
 
 const hotelField: FormField = {
   id: "hotel",
@@ -107,6 +107,53 @@ describe("price tbd (meddelas senare)", () => {
     // 12800 - 3000 = 9800 kvar + pris för Liftkort, allt på slutfakturan
     // (regex för att hantera non-breaking space i toLocaleString)
     expect(message).toMatch(/Resterande belopp \(9.800 SEK\) \+ pris för Liftkort tillkommer på slutfakturan/);
+  });
+});
+
+describe("promo codes", () => {
+  const codes: PromoCode[] = [
+    { code: "LOJAL20", type: "percent", value: 20, label: "Lojal kund" },
+    { code: "GRATIS", type: "percent", value: 100, label: "Jobbar på resan" },
+    { code: "RABATT1000", type: "fixed", value: 1000 },
+  ];
+
+  it("matchar kod skiftlägesokänsligt och trimmat", () => {
+    expect(findPromoCode(codes, " lojal20 ")?.code).toBe("LOJAL20");
+    expect(findPromoCode(codes, "saknas")).toBeUndefined();
+    expect(findPromoCode(undefined, "LOJAL20")).toBeUndefined();
+    expect(findPromoCode(codes, "")).toBeUndefined();
+  });
+
+  it("räknar procentrabatt på totalen", () => {
+    expect(calcPromoDiscountSek(12000, codes[0])).toBe(2400);
+  });
+
+  it("100% gör resan gratis", () => {
+    expect(calcPromoDiscountSek(12000, codes[1])).toBe(12000);
+  });
+
+  it("drar av fast belopp men aldrig mer än totalen", () => {
+    expect(calcPromoDiscountSek(12000, codes[2])).toBe(1000);
+    expect(calcPromoDiscountSek(800, codes[2])).toBe(800);
+  });
+
+  it("ger noll rabatt utan kod eller på tom total", () => {
+    expect(calcPromoDiscountSek(12000, undefined)).toBe(0);
+    expect(calcPromoDiscountSek(0, codes[0])).toBe(0);
+  });
+
+  it("visar kampanjrabatten och nettopriset i anmälningsmejlet", () => {
+    const { message } = buildRegistrationEmail({
+      firstName: "Anna",
+      tripTitle: "Skidresa",
+      totalPrice: 10000,
+      extraCosts: { SEK: 2000 },
+      promoCode: "LOJAL20",
+      promoDiscount: 2400,
+    });
+    // toLocaleString använder non-breaking space → regex
+    expect(message).toMatch(/Kampanjkod LOJAL20: −2.400 SEK/);
+    expect(message).toMatch(/Ditt pris: 9.600 SEK/);
   });
 });
 

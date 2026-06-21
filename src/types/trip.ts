@@ -50,6 +50,21 @@ export interface TripDateRange {
   label?: string;
 }
 
+/**
+ * Kampanjkod kopplad till en resa. Admin styr rabatten själv.
+ * - type 'percent': value = procent (0–100). 100 = gratis.
+ * - type 'fixed': value = fast belopp i SEK som dras av.
+ * Rabatten räknas på hela totalen (grundpris + prismodifierare).
+ */
+export interface PromoCode {
+  /** Koden kunden anger. Matchas skiftlägesokänsligt. */
+  code: string;
+  type: 'percent' | 'fixed';
+  value: number;
+  /** Intern notering, t.ex. "Lojal kund" eller "Jobbar på resan". Visas inte för kunden. */
+  label?: string;
+}
+
 export interface Trip {
   id: string;
   title: string;
@@ -69,6 +84,7 @@ export interface Trip {
   status: TripStatus;
   form_fields: FormField[];
   presentation_fields: PresentationQuestion[];
+  promo_codes?: PromoCode[];
   payment_info?: {
     swish?: { number: string; name: string; amount?: number };
     viva?: { url: string; amount?: number };

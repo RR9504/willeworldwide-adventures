@@ -1,19 +1,21 @@
 import { useState } from 'react';
-import { FormField, PresentationQuestion, Trip } from '@/types/trip';
+import { FormField, PresentationQuestion, PromoCode, Trip } from '@/types/trip';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, CreditCard, Smartphone, AlertTriangle, UserPlus, X } from 'lucide-react';
-import { calcExtraCostsFromFormData, collectTbdLabels } from '@/lib/messaging';
+import { CheckCircle2, CreditCard, Smartphone, AlertTriangle, UserPlus, X, Tag } from 'lucide-react';
+import { calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek } from '@/lib/messaging';
 
 export interface SubmitMeta {
   extraCosts: Record<string, number>;
   dynamicTotal: number;
   otherCurrencies: [string, number][];
   tbdLabels: string[];
+  // Tillämpad kampanjkod (om någon) — sparas på anmälan och styr rabatten i mejl/admin.
+  promoCode?: string;
   // Lära känna-svar per person — main + en post per medresenär
   presentationData: Record<string, string>;
   companionPresentations: Record<string, string>[];
@@ -26,9 +28,10 @@ interface DynamicFormProps {
   isSubmitting?: boolean;
   paymentInfo?: Trip['payment_info'];
   tripPrice?: number;
+  promoCodes?: PromoCode[];
 }
 
-const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, paymentInfo, tripPrice }: DynamicFormProps) => {
+const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, paymentInfo, tripPrice, promoCodes }: DynamicFormProps) => {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [presentationData, setPresentationData] = useState<Record<string, string>>({});
   const [companions, setCompanions] = useState<Record<string, any>[]>([]);
@@ -36,7 +39,10 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
   const [gdprAccepted, setGdprAccepted] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const hasPresentation = presentationFields.length > 0;
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
+  const [promoError, setPromoError] = useState('');
+  const hasPromoCodes = !!promoCodes?.length;
 
   const totalPeople = 1 + companions.length;
 
@@ -51,8 +57,31 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
   const allModifiers = mergeTotals(mainModifiers, ...companionModifiersList);
   const sekModifiers = allModifiers['SEK'] || 0;
   const otherCurrencies = Object.entries(allModifiers).filter(([k]) => k !== 'SEK');
-  const dynamicTotal = (tripPrice ?? 0) * totalPeople + sekModifiers;
+  const grossSek = (tripPrice ?? 0) * totalPeople + sekModifiers;
+
+  // Rabatten räknas per person på (grundpris + personens SEK-tillägg), så den blir
+  // konsekvent med bekräftelsemejlen som beräknas per anmälan.
+  const perPersonSek = [mainModifiers, ...companionModifiersList].map(m => (tripPrice ?? 0) + (m['SEK'] || 0));
+  const promoDiscount = appliedPromo ? perPersonSek.reduce((sum, sek) => sum + calcPromoDiscountSek(sek, appliedPromo), 0) : 0;
+  const dynamicTotal = Math.max(0, grossSek - promoDiscount);
   const hasModifiers = Object.values(allModifiers).some(v => v > 0);
+
+  const applyPromo = () => {
+    const match = findPromoCode(promoCodes, promoInput);
+    if (!match) {
+      setAppliedPromo(null);
+      setPromoError('Ogiltig kampanjkod');
+      return;
+    }
+    setAppliedPromo(match);
+    setPromoError('');
+  };
+
+  const clearPromo = () => {
+    setAppliedPromo(null);
+    setPromoInput('');
+    setPromoError('');
+  };
 
   const mainTbd = collectTbdLabels(fields, formData);
   const companionTbd = companions.flatMap(c => collectTbdLabels(fields, c));
@@ -149,6 +178,7 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
       dynamicTotal,
       otherCurrencies,
       tbdLabels,
+      promoCode: appliedPromo?.code,
       presentationData,
       companionPresentations,
     };
@@ -181,6 +211,11 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
               <p className="font-heading font-semibold text-lg text-yellow-800">
                 {totalPeople > 1 ? 'Era anmälningar är inte giltiga' : 'Din anmälan är inte giltig'} förrän depositionen är betald
               </p>
+              {promoDiscount > 0 && (
+                <p className="text-sm text-yellow-700">
+                  Kampanjrabatt ({appliedPromo?.code}): <span className="font-bold">−{promoDiscount.toLocaleString('sv-SE')} SEK</span>
+                </p>
+              )}
               <p className="text-sm text-yellow-700">
                 Ditt pris{tbdLabels.length > 0 ? ` (exklusive ${tbdLabels.join(', ')})` : ''}: <span className="font-bold">{priceDisplay}</span>
               </p>
@@ -409,10 +444,50 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
         <UserPlus className="h-4 w-4" /> Lägg till medresenär
       </Button>
 
-      {((dynamicTotal > 0 && (hasModifiers || totalPeople > 1)) || tbdLabels.length > 0) && (
+      {/* Kampanjkod */}
+      {hasPromoCodes && (
+        <div className="space-y-2 rounded-lg border border-dashed p-4">
+          <Label className="flex items-center gap-1.5 text-sm font-medium">
+            <Tag className="h-4 w-4 text-primary" /> Kampanjkod
+          </Label>
+          {appliedPromo ? (
+            <div className="flex items-center justify-between gap-2 rounded-md bg-primary/10 px-3 py-2">
+              <span className="text-sm font-medium text-primary">
+                {appliedPromo.code} tillämpad
+                {appliedPromo.type === 'percent'
+                  ? ` (−${appliedPromo.value}%)`
+                  : ` (−${appliedPromo.value.toLocaleString('sv-SE')} SEK/person)`}
+              </span>
+              <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 text-muted-foreground" onClick={clearPromo}>
+                <X className="h-3.5 w-3.5" /> Ta bort
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Input
+                value={promoInput}
+                onChange={e => { setPromoInput(e.target.value); setPromoError(''); }}
+                placeholder="Ange kod"
+                className={promoError ? 'border-destructive' : ''}
+              />
+              <Button type="button" variant="outline" onClick={applyPromo} disabled={!promoInput.trim()}>
+                Använd
+              </Button>
+            </div>
+          )}
+          {promoError && <p className="text-xs text-destructive">{promoError}</p>}
+        </div>
+      )}
+
+      {((dynamicTotal > 0 && (hasModifiers || totalPeople > 1)) || promoDiscount > 0 || tbdLabels.length > 0) && (
         <div className="rounded-lg bg-accent p-4 text-center space-y-1">
-          {dynamicTotal > 0 && (hasModifiers || totalPeople > 1) && (
+          {(dynamicTotal > 0 && (hasModifiers || totalPeople > 1)) || promoDiscount > 0 ? (
             <>
+              {promoDiscount > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Kampanjrabatt ({appliedPromo?.code}): <span className="font-medium text-primary">−{promoDiscount.toLocaleString('sv-SE')} SEK</span>
+                </p>
+              )}
               <p className="text-sm text-muted-foreground">
                 {totalPeople > 1 ? `Totalt för ${totalPeople} resenärer` : 'Ditt pris'}
                 {tbdLabels.length > 0 ? ` (exklusive ${tbdLabels.join(', ')})` : ''}
@@ -424,7 +499,7 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
                 ))}
               </p>
             </>
-          )}
+          ) : null}
           {tbdLabels.length > 0 && (
             <p className="text-xs italic text-muted-foreground">
               Pris för {tbdLabels.join(', ')} tillkommer på slutfakturan.
