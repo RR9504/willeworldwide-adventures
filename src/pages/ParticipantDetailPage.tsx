@@ -12,8 +12,9 @@ import { Label } from '@/components/ui/label';
 import Header from '@/components/layout/Header';
 import { useTrip, useRegistrations, useUpdateRegistration, useDeleteRegistration } from '@/hooks/useTrips';
 import { Button } from '@/components/ui/button';
-import { PaymentStatus } from '@/types/trip';
+import { PaymentStatus, PromoCode } from '@/types/trip';
 import { EditableFormField } from '@/components/trips/EditableFormField';
+import { BookingDiscountEditor } from '@/components/trips/BookingDiscountEditor';
 import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek } from '@/lib/messaging';
 import { toast } from 'sonner';
 
@@ -55,7 +56,9 @@ const ParticipantDetailPage = () => {
   const extraCosts = calcExtraCostsFromFormData(trip.form_fields, reg.form_data);
   const otherCurrencies = Object.entries(extraCosts).filter(([k, v]) => k !== 'SEK' && v > 0);
   const grossSek = trip.price + (extraCosts['SEK'] || 0);
-  const promo = findPromoCode(trip.promo_codes, reg.form_data['_promo_code']);
+  // Admin-satt rabatt (_promo_override) tar precedens över kundens egen kampanjkod.
+  const promoOverride = reg.form_data['_promo_override'] as PromoCode | undefined;
+  const promo = promoOverride ?? findPromoCode(trip.promo_codes, reg.form_data['_promo_code']);
   const promoDiscount = calcPromoDiscountSek(grossSek, promo);
   const totalSek = Math.max(0, grossSek - promoDiscount);
   const tbdLabels = collectTbdLabels(trip.form_fields, reg.form_data);
@@ -203,6 +206,16 @@ const ParticipantDetailPage = () => {
                       onUpdate={(label, value) => setBookingDraft(prev => ({ ...prev, [label]: value }))}
                     />
                   ))}
+                  <BookingDiscountEditor
+                    promoCodes={trip.promo_codes}
+                    value={bookingDraft['_promo_override'] as PromoCode | undefined}
+                    onChange={v => setBookingDraft(prev => {
+                      const next = { ...prev };
+                      if (v) next['_promo_override'] = v;
+                      else delete next['_promo_override'];
+                      return next;
+                    })}
+                  />
                 </div>
               )}
             </CardContent>
@@ -236,7 +249,7 @@ const ParticipantDetailPage = () => {
                 </div>
                 {promoDiscount > 0 && (
                   <div className="flex items-center justify-between text-primary">
-                    <span className="text-sm">Kampanjkod {promo?.code}{promo?.label ? ` (${promo.label})` : ''}</span>
+                    <span className="text-sm">{promo?.code ? `Kampanjkod ${promo.code}` : 'Rabatt'}{promo?.label ? ` (${promo.label})` : ''}</span>
                     <span className="text-sm font-medium">−{promoDiscount.toLocaleString('sv-SE')} {trip.currency}</span>
                   </div>
                 )}
