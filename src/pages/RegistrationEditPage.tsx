@@ -67,7 +67,7 @@ const RegistrationEditPage = () => {
     <div className="flex min-h-screen flex-col bg-muted/30">
       <main className="container max-w-2xl flex-1 py-8">
         <div className="mb-6 text-center">
-          <img src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/short-logo-wille-worldwide-vittext-rgb.png?media=1766889486" alt="Wille Worldwide" className="mx-auto mb-4 h-10 w-auto rounded bg-sidebar p-2" />
+          <img src="/wille-logo.png" alt="Wille Worldwide" className="mx-auto mb-4 h-10 w-auto rounded bg-sidebar p-2" />
           <h1 className="font-heading text-2xl font-bold">{trip.title}</h1>
           <p className="mt-1 text-muted-foreground">
             Hej{name ? ` ${name.split(' ')[0]}` : ''}! Här kan du uppdatera eller komplettera dina anmälningsuppgifter.

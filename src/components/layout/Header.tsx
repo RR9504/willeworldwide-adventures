@@ -17,7 +17,7 @@ const Header = () => {
       <div className="container flex h-16 items-center justify-between">
         <Link to="/dashboard" className="flex items-center gap-2.5">
           <img
-            src="https://usercontent.one/wp/www.willeworldwide.se/wp-content/uploads/2021/06/short-logo-wille-worldwide-vittext-rgb.png?media=1766889486"
+            src="/wille-logo.png"
             alt="Wille Worldwide"
             className="h-10 w-auto"
           />

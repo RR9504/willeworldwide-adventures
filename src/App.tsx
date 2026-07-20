@@ -14,6 +14,10 @@ import PresentationFormPage from "./pages/PresentationFormPage";
 import RegistrationEditPage from "./pages/RegistrationEditPage";
 import AlertListPage from "./pages/AlertListPage";
 import LoginPage from "./pages/LoginPage";
+import Index from "./pages/Index";
+import OmOss from "./pages/OmOss";
+import Kontakt from "./pages/Kontakt";
+import OfferingPage from "./pages/OfferingPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,7 +35,14 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Index />} />
+          <Route path="/om-oss" element={<OmOss />} />
+          <Route path="/kontakt" element={<Kontakt />} />
+          <Route path="/skidresor" element={<OfferingPage slug="skidresor" />} />
+          <Route path="/gruppresor-foretagsresor" element={<OfferingPage slug="gruppresor-foretagsresor" />} />
+          <Route path="/skraddarsydda-resor" element={<OfferingPage slug="skraddarsydda-resor" />} />
+          <Route path="/kryssningar" element={<OfferingPage slug="kryssningar" />} />
+          <Route path="/oktoberfesten-i-bremen" element={<OfferingPage slug="oktoberfesten-i-bremen" />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/resa/:id" element={<TripRegistrationPage />} />
           <Route path="/resa/:id/presentation/:regId" element={<PresentationFormPage />} />
