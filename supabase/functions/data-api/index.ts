@@ -54,6 +54,9 @@ const PUBLIC_ACTIONS = new Set([
   "trips.counts",
   "pageContent.get",
   "registrations.create",
+  // Capability-länk: en registrant läser/kompletterar SIN egen anmälan via dess UUID.
+  "registrations.getOne",
+  "registrations.updateOwn",
 ]);
 
 serve(async (req) => {
@@ -156,6 +159,23 @@ serve(async (req) => {
           out.push(rows[0]);
         }
         return json(out);
+      }
+
+      // PUBLIK via capability-UUID: registrantens egen anmälan.
+      case "registrations.getOne": {
+        const rows = await sql`SELECT * FROM registrations WHERE id = ${p.id as string}`;
+        return json(rows[0] ?? null);
+      }
+
+      // PUBLIK via capability-UUID: uppdaterar ENDAST kundens egna fält (ej betalning/admin).
+      case "registrations.updateOwn": {
+        const u = p as Record<string, any>;
+        const rows = await sql`
+          UPDATE registrations SET
+            form_data = COALESCE(${u.form_data ? JSON.stringify(u.form_data) : null}, form_data),
+            presentation_data = COALESCE(${u.presentation_data ? JSON.stringify(u.presentation_data) : null}, presentation_data)
+          WHERE id = ${u.id} RETURNING *`;
+        return json(rows[0]);
       }
 
       case "registrations.list": {
