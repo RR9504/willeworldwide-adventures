@@ -1,1 +1,6 @@
 project_id = "vsvqiiofoylrgddhdcss"
+
+# data-api gör egen behörighetskontroll inuti funktionen (publika vs admin-actions),
+# därför stänger vi av gateway-JWT-kravet så publika anrop (t.ex. skapa anmälan) fungerar.
+[functions.data-api]
+verify_jwt = false
