@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { sql } from '@/lib/db';
+import { callApi } from '@/lib/api';
 import { Registration, PaymentStatus } from '@/types/trip';
 
 function mapRegistration(row: any): Registration {
@@ -22,9 +22,7 @@ export function useRegistrations(tripId?: string) {
   return useQuery({
     queryKey: ['registrations', { tripId }],
     queryFn: async () => {
-      const rows = tripId
-        ? await sql`SELECT * FROM registrations WHERE trip_id = ${tripId} ORDER BY created_at ASC`
-        : await sql`SELECT * FROM registrations ORDER BY created_at ASC`;
+      const rows = await callApi<any[]>('registrations.list', tripId ? { tripId } : {});
       return rows.map(mapRegistration);
     },
   });
@@ -34,7 +32,7 @@ export function useAllRegistrations() {
   return useQuery({
     queryKey: ['registrations', 'all'],
     queryFn: async () => {
-      const rows = await sql`SELECT id, trip_id, payment_status, presentation_data, form_data, created_at FROM registrations ORDER BY created_at ASC`;
+      const rows = await callApi<any[]>('registrations.list', {});
       return rows.map(mapRegistration);
     },
   });
@@ -42,48 +40,60 @@ export function useAllRegistrations() {
 
 /**
  * Antal anmälningar per resa – returnerar ENDAST antal (aldrig personuppgifter).
- * Säker att använda på den publika startsidan för "platser kvar".
+ * Publik action, säker för "platser kvar" på startsidan.
  */
 export function useTripRegistrationCounts() {
   return useQuery({
     queryKey: ['registrations', 'counts'],
     queryFn: async () => {
-      const rows = await sql`SELECT trip_id, count(*)::int AS n FROM registrations GROUP BY trip_id`;
+      const rows = await callApi<{ trip_id: string; n: number }[]>('trips.counts');
       const counts: Record<string, number> = {};
-      for (const r of rows as { trip_id: string; n: number }[]) counts[r.trip_id] = r.n;
+      for (const r of rows) counts[r.trip_id] = r.n;
       return counts;
     },
   });
 }
 
-export function useRegistration(regId: string | undefined, tripId?: string) {
+export function useRegistration(regId: string | undefined) {
   return useQuery({
     queryKey: ['registrations', regId],
     queryFn: async () => {
-      const rows = tripId
-        ? await sql`SELECT * FROM registrations WHERE id = ${regId!} AND trip_id = ${tripId}`
-        : await sql`SELECT * FROM registrations WHERE id = ${regId!}`;
-      if (rows.length === 0) throw new Error('Registration not found');
-      return mapRegistration(rows[0]);
+      const row = await callApi<any>('registrations.get', { id: regId });
+      if (!row) throw new Error('Registration not found');
+      return mapRegistration(row);
     },
     enabled: !!regId,
+  });
+}
+
+/** Publik: hämtar EN anmälan via dess UUID (capability-länk för registranten). */
+export function useRegistrationById(regId: string | undefined) {
+  return useQuery({
+    queryKey: ['registration-own', regId],
+    queryFn: async () => {
+      const row = await callApi<any>('registrations.getOne', { id: regId });
+      return row ? mapRegistration(row) : null;
+    },
+    enabled: !!regId,
+  });
+}
+
+/** Publik: registranten uppdaterar sina egna fält (form_data/presentation_data). */
+export function useUpdateOwnRegistration() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, form_data, presentation_data }: { id: string; form_data?: Record<string, any>; presentation_data?: Record<string, string> }) =>
+      mapRegistration(await callApi('registrations.updateOwn', { id, form_data, presentation_data })),
+    onSuccess: (data) => queryClient.invalidateQueries({ queryKey: ['registration-own', data.id] }),
   });
 }
 
 export function useCreateRegistration() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (reg: { trip_id: string; form_data: Record<string, any>; presentation_data?: Record<string, string> }) => {
-      const rows = await sql`
-        INSERT INTO registrations (trip_id, form_data, presentation_data)
-        VALUES (${reg.trip_id}, ${JSON.stringify(reg.form_data)}, ${reg.presentation_data ? JSON.stringify(reg.presentation_data) : null})
-        RETURNING *
-      `;
-      return mapRegistration(rows[0]);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['registrations'] });
-    },
+    mutationFn: async (reg: { trip_id: string; form_data: Record<string, any>; presentation_data?: Record<string, string> }) =>
+      mapRegistration(await callApi('registrations.create', reg)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['registrations'] }),
   });
 }
 
@@ -91,20 +101,10 @@ export function useCreateRegistrations() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (regs: { trip_id: string; form_data: Record<string, any>; presentation_data?: Record<string, string> }[]) => {
-      const results: Registration[] = [];
-      for (const reg of regs) {
-        const rows = await sql`
-          INSERT INTO registrations (trip_id, form_data, presentation_data)
-          VALUES (${reg.trip_id}, ${JSON.stringify(reg.form_data)}, ${reg.presentation_data ? JSON.stringify(reg.presentation_data) : null})
-          RETURNING *
-        `;
-        results.push(mapRegistration(rows[0]));
-      }
-      return results;
+      const rows = await callApi<any[]>('registrations.createMany', { regs });
+      return rows.map(mapRegistration);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['registrations'] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['registrations'] }),
   });
 }
 
@@ -112,30 +112,17 @@ export function useDeleteRegistration() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      await sql`DELETE FROM registrations WHERE id = ${id}`;
+      await callApi('registrations.delete', { id });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['registrations'] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['registrations'] }),
   });
 }
 
 export function useUpdateRegistration() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string; payment_status?: PaymentStatus; payment_note?: string; form_data?: Record<string, any>; presentation_data?: Record<string, string>; ai_summary?: string | null }) => {
-      const rows = await sql`
-        UPDATE registrations SET
-          payment_status = COALESCE(${updates.payment_status ?? null}, payment_status),
-          payment_note = COALESCE(${updates.payment_note ?? null}, payment_note),
-          form_data = COALESCE(${updates.form_data ? JSON.stringify(updates.form_data) : null}, form_data),
-          presentation_data = COALESCE(${updates.presentation_data ? JSON.stringify(updates.presentation_data) : null}, presentation_data),
-          ai_summary = COALESCE(${updates.ai_summary ?? null}, ai_summary)
-        WHERE id = ${id}
-        RETURNING *
-      `;
-      return mapRegistration(rows[0]);
-    },
+    mutationFn: async ({ id, ...updates }: { id: string; payment_status?: PaymentStatus; payment_note?: string; form_data?: Record<string, any>; presentation_data?: Record<string, string>; ai_summary?: string | null }) =>
+      mapRegistration(await callApi('registrations.update', { id, ...updates })),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['registrations'] });
       queryClient.invalidateQueries({ queryKey: ['registrations', data.id] });

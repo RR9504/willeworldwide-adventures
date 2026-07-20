@@ -4,22 +4,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Lock } from 'lucide-react';
+import { Lock, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 const LoginPage = () => {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const { signIn } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (login(password)) {
-      navigate('/dashboard');
-    } else {
-      toast.error('Fel lösenord');
+    setLoading(true);
+    const { error } = await signIn(email, password);
+    setLoading(false);
+    if (error) {
+      toast.error('Fel e-post eller lösenord');
       setPassword('');
+    } else {
+      navigate('/dashboard');
     }
   };
 
@@ -39,16 +44,31 @@ const LoginPage = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label>Lösenord</Label>
+              <Label htmlFor="email">E-post</Label>
               <Input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="Ange lösenord"
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="namn@willeworldwide.se"
                 autoFocus
+                required
               />
             </div>
-            <Button type="submit" className="w-full">Logga in</Button>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Lösenord</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Ange lösenord"
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full gap-2" disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />} Logga in
+            </Button>
           </form>
         </CardContent>
       </Card>

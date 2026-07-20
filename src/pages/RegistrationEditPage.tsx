@@ -4,7 +4,7 @@ import { CheckCircle2, Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EditableFormField } from '@/components/trips/EditableFormField';
-import { useTrip, useRegistrations, useUpdateRegistration } from '@/hooks/useTrips';
+import { useTrip, useRegistrationById, useUpdateOwnRegistration } from '@/hooks/useTrips';
 import { toast } from 'sonner';
 
 // Publik länk för kunden att komplettera/uppdatera sin anmälan.
@@ -12,9 +12,8 @@ import { toast } from 'sonner';
 const RegistrationEditPage = () => {
   const { id, regId } = useParams<{ id: string; regId: string }>();
   const { data: trip, isLoading: tripLoading } = useTrip(id);
-  const { data: registrations = [], isLoading: regsLoading } = useRegistrations(id);
-  const reg = registrations.find(r => r.id === regId);
-  const updateRegistration = useUpdateRegistration();
+  const { data: reg, isLoading: regsLoading } = useRegistrationById(regId);
+  const updateRegistration = useUpdateOwnRegistration();
   const [draft, setDraft] = useState<Record<string, any>>({});
   const [saved, setSaved] = useState(false);
 

@@ -1,14 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { sql } from '@/lib/db';
+import { callApi } from '@/lib/api';
 import { getFieldDefault } from '@/data/editableContent';
 
 export type PageOverride = Record<string, string>;
 
 async function fetchOverride(slug: string): Promise<PageOverride> {
-  const rows = await sql`SELECT content FROM page_content WHERE slug = ${slug}`;
-  if (rows.length === 0) return {};
-  const c = rows[0].content;
-  return (typeof c === 'string' ? JSON.parse(c) : c) as PageOverride;
+  const content = await callApi<PageOverride>('pageContent.get', { slug });
+  return content ?? {};
 }
 
 /**
@@ -42,11 +40,7 @@ export function useSavePageContent() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ slug, content }: { slug: string; content: PageOverride }) => {
-      await sql`
-        INSERT INTO page_content (slug, content, updated_at)
-        VALUES (${slug}, ${JSON.stringify(content)}::jsonb, now())
-        ON CONFLICT (slug) DO UPDATE SET content = EXCLUDED.content, updated_at = now()
-      `;
+      await callApi('pageContent.save', { slug, content });
       return content;
     },
     onSuccess: (_data, { slug }) => {

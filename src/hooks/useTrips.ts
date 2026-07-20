@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { sql } from '@/lib/db';
+import { callApi } from '@/lib/api';
 import { Trip, TripCategory, TripStatus, FormField, PresentationQuestion, TripDateRange, PromoCode } from '@/types/trip';
 
 // Re-export registration hooks so pages can import everything from useTrips
-export { useRegistrations, useAllRegistrations, useTripRegistrationCounts, useRegistration, useCreateRegistration, useCreateRegistrations, useUpdateRegistration, useDeleteRegistration } from './useRegistrations';
+export { useRegistrations, useAllRegistrations, useTripRegistrationCounts, useRegistration, useRegistrationById, useUpdateOwnRegistration, useCreateRegistration, useCreateRegistrations, useUpdateRegistration, useDeleteRegistration } from './useRegistrations';
 
 function mapTrip(row: any): Trip {
   return {
@@ -32,11 +32,23 @@ function mapTrip(row: any): Trip {
   };
 }
 
+/** Alla resor (admin – dashboard). */
 export function useTrips() {
   return useQuery({
     queryKey: ['trips'],
     queryFn: async () => {
-      const rows = await sql`SELECT * FROM trips ORDER BY start_date DESC`;
+      const rows = await callApi<any[]>('trips.listAll');
+      return rows.map(mapTrip);
+    },
+  });
+}
+
+/** Endast publicerade resor (publik startsida). */
+export function usePublishedTrips() {
+  return useQuery({
+    queryKey: ['trips', 'published'],
+    queryFn: async () => {
+      const rows = await callApi<any[]>('trips.listPublished');
       return rows.map(mapTrip);
     },
   });
@@ -46,9 +58,9 @@ export function useTrip(id: string | undefined) {
   return useQuery({
     queryKey: ['trips', id],
     queryFn: async () => {
-      const rows = await sql`SELECT * FROM trips WHERE id = ${id!}`;
-      if (rows.length === 0) throw new Error('Trip not found');
-      return mapTrip(rows[0]);
+      const row = await callApi<any>('trips.get', { id });
+      if (!row) throw new Error('Trip not found');
+      return mapTrip(row);
     },
     enabled: !!id,
   });
@@ -57,48 +69,17 @@ export function useTrip(id: string | undefined) {
 export function useCreateTrip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (trip: Omit<Trip, 'id' | 'created_at' | 'updated_at'>) => {
-      const rows = await sql`
-        INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, payment_info)
-        VALUES (${trip.title}, ${trip.description}, ${trip.destination}, ${trip.category}, ${trip.start_date}, ${trip.end_date}, ${trip.price}, ${trip.currency}, ${trip.max_participants}, ${trip.show_spots_left}, ${trip.spots_left_threshold ?? null}, ${trip.image_url}, ${trip.image_position ?? null}, ${trip.status}, ${JSON.stringify(trip.form_fields)}, ${JSON.stringify(trip.presentation_fields)}, ${trip.payment_info ? JSON.stringify(trip.payment_info) : null})
-        RETURNING *
-      `;
-      return mapTrip(rows[0]);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trips'] });
-    },
+    mutationFn: async (trip: Omit<Trip, 'id' | 'created_at' | 'updated_at'>) =>
+      mapTrip(await callApi('trips.save', trip as Record<string, unknown>)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trips'] }),
   });
 }
 
 export function useUpdateTrip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Trip> & { id: string }) => {
-      const rows = await sql`
-        UPDATE trips SET
-          title = COALESCE(${updates.title ?? null}, title),
-          description = COALESCE(${updates.description ?? null}, description),
-          destination = COALESCE(${updates.destination ?? null}, destination),
-          category = COALESCE(${updates.category ?? null}, category),
-          start_date = COALESCE(${updates.start_date ?? null}, start_date),
-          end_date = COALESCE(${updates.end_date ?? null}, end_date),
-          price = COALESCE(${updates.price ?? null}, price),
-          currency = COALESCE(${updates.currency ?? null}, currency),
-          max_participants = COALESCE(${updates.max_participants ?? null}, max_participants),
-          show_spots_left = COALESCE(${updates.show_spots_left ?? null}, show_spots_left),
-          spots_left_threshold = ${updates.spots_left_threshold ?? null},
-          image_url = COALESCE(${updates.image_url ?? null}, image_url),
-          image_position = ${updates.image_position ?? null},
-          status = COALESCE(${updates.status ?? null}, status),
-          form_fields = COALESCE(${updates.form_fields ? JSON.stringify(updates.form_fields) : null}, form_fields),
-          presentation_fields = COALESCE(${updates.presentation_fields ? JSON.stringify(updates.presentation_fields) : null}, presentation_fields),
-          payment_info = ${(updates as any).payment_info ? JSON.stringify((updates as any).payment_info) : null}
-        WHERE id = ${id}
-        RETURNING *
-      `;
-      return mapTrip(rows[0]);
-    },
+    mutationFn: async ({ id, ...updates }: Partial<Trip> & { id: string }) =>
+      mapTrip(await callApi('trips.save', { id, ...updates })),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['trips'] });
       queryClient.invalidateQueries({ queryKey: ['trips', data.id] });
@@ -110,69 +91,18 @@ export function useUpdateTrip() {
 export function useSaveTrip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (trip: Partial<Trip> & { id?: string }) => {
-      const { id, ...rest } = trip;
-      if (id) {
-        const rows = await sql`
-          UPDATE trips SET
-            title = COALESCE(${rest.title ?? null}, title),
-            description = COALESCE(${rest.description ?? null}, description),
-            destination = COALESCE(${rest.destination ?? null}, destination),
-            category = COALESCE(${rest.category ?? null}, category),
-            start_date = COALESCE(${rest.start_date ?? null}, start_date),
-            end_date = COALESCE(${rest.end_date ?? null}, end_date),
-            price = COALESCE(${rest.price ?? null}, price),
-            currency = COALESCE(${rest.currency ?? null}, currency),
-            max_participants = COALESCE(${rest.max_participants ?? null}, max_participants),
-            show_spots_left = COALESCE(${rest.show_spots_left ?? null}, show_spots_left),
-            spots_left_threshold = ${rest.spots_left_threshold ?? null},
-            image_url = COALESCE(${rest.image_url ?? null}, image_url),
-            image_position = ${rest.image_position ?? null},
-            status = COALESCE(${rest.status ?? null}, status),
-            form_fields = COALESCE(${rest.form_fields ? JSON.stringify(rest.form_fields) : null}, form_fields),
-            presentation_fields = COALESCE(${rest.presentation_fields ? JSON.stringify(rest.presentation_fields) : null}, presentation_fields),
-            additional_dates = ${rest.additional_dates ? JSON.stringify(rest.additional_dates) : null},
-            promo_codes = ${rest.promo_codes ? JSON.stringify(rest.promo_codes) : null},
-            payment_info = ${(rest as any).payment_info ? JSON.stringify((rest as any).payment_info) : null}
-          WHERE id = ${id}
-          RETURNING *
-        `;
-        return mapTrip(rows[0]);
-      } else {
-        const t = rest as Omit<Trip, 'id' | 'created_at' | 'updated_at'>;
-        const rows = await sql`
-          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, promo_codes, payment_info)
-          VALUES (${t.title}, ${t.description}, ${t.destination}, ${t.category}, ${t.start_date}, ${t.end_date}, ${t.price}, ${t.currency}, ${t.max_participants}, ${t.show_spots_left}, ${t.spots_left_threshold ?? null}, ${t.image_url}, ${t.image_position ?? null}, ${t.status}, ${JSON.stringify(t.form_fields)}, ${JSON.stringify(t.presentation_fields)}, ${t.additional_dates ? JSON.stringify(t.additional_dates) : null}, ${t.promo_codes ? JSON.stringify(t.promo_codes) : null}, ${(t as any).payment_info ? JSON.stringify((t as any).payment_info) : null})
-          RETURNING *
-        `;
-        return mapTrip(rows[0]);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trips'] });
-    },
+    mutationFn: async (trip: Partial<Trip> & { id?: string }) =>
+      mapTrip(await callApi('trips.save', trip as Record<string, unknown>)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trips'] }),
   });
 }
 
-// Duplicera en hel resa — formulärfält, presentationsfrågor, payment_info, allt
-// utom anmälningar. Kopian sätts till draft med "(kopia)" i titeln.
+// Duplicera en hel resa (utom anmälningar). Kopian sätts till draft med "(kopia)".
 export function useDuplicateTrip() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string): Promise<Trip> => {
-      const rows = await sql`SELECT * FROM trips WHERE id = ${id}`;
-      if (rows.length === 0) throw new Error('Trip not found');
-      const src = mapTrip(rows[0]);
-      const newRows = await sql`
-        INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, promo_codes, payment_info)
-        VALUES (${`${src.title} (kopia)`}, ${src.description}, ${src.destination}, ${src.category}, ${src.start_date}, ${src.end_date}, ${src.price}, ${src.currency}, ${src.max_participants}, ${src.show_spots_left}, ${src.spots_left_threshold ?? null}, ${src.image_url}, ${src.image_position ?? null}, ${'draft' as TripStatus}, ${JSON.stringify(src.form_fields)}, ${JSON.stringify(src.presentation_fields)}, ${src.additional_dates ? JSON.stringify(src.additional_dates) : null}, ${src.promo_codes ? JSON.stringify(src.promo_codes) : null}, ${src.payment_info ? JSON.stringify(src.payment_info) : null})
-        RETURNING *
-      `;
-      return mapTrip(newRows[0]);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trips'] });
-    },
+    mutationFn: async (id: string): Promise<Trip> => mapTrip(await callApi('trips.duplicate', { id })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trips'] }),
   });
 }
 
@@ -180,10 +110,8 @@ export function useDeleteTrip() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      await sql`DELETE FROM trips WHERE id = ${id}`;
+      await callApi('trips.delete', { id });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['trips'] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trips'] }),
   });
 }

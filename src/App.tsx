@@ -3,7 +3,8 @@ import { BrowserRouter, Route, Routes, Navigate, Outlet } from "react-router-dom
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useAuth } from "@/hooks/useAuth";
+import { Loader2 } from "lucide-react";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import TripRegistrationPage from "./pages/TripRegistrationPage";
 import Dashboard from "./pages/Dashboard";
 import TripDetailsPage from "./pages/TripDetailsPage";
@@ -25,8 +26,15 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const ProtectedRoute = () => {
-  const { isAuthenticated } = useAuth();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const { isAdmin, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (!isAdmin) return <Navigate to="/login" replace />;
   return <Outlet />;
 };
 
@@ -36,6 +44,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <AuthProvider>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/om-oss" element={<OmOss />} />
@@ -62,6 +71,7 @@ const App = () => (
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

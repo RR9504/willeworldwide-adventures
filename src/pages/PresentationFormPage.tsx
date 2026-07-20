@@ -6,15 +6,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useTrip, useRegistrations, useUpdateRegistration } from '@/hooks/useTrips';
+import { useTrip, useRegistrationById, useUpdateOwnRegistration } from '@/hooks/useTrips';
 import { toast } from 'sonner';
 
 const PresentationFormPage = () => {
   const { id, regId } = useParams<{ id: string; regId: string }>();
   const { data: trip, isLoading: tripLoading } = useTrip(id);
-  const { data: registrations = [], isLoading: regsLoading } = useRegistrations(id);
-  const reg = registrations.find(r => r.id === regId);
-  const updateRegistration = useUpdateRegistration();
+  const { data: reg, isLoading: regsLoading } = useRegistrationById(regId);
+  const updateRegistration = useUpdateOwnRegistration();
 
   const [formData, setFormData] = useState<Record<string, string>>(reg?.presentation_data || {});
   const [submitted, setSubmitted] = useState(false);

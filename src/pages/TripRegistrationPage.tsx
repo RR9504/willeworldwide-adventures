@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import DynamicForm, { SubmitMeta } from '@/components/trips/DynamicForm';
-import { useTrip, useRegistrations, useCreateRegistration, useCreateRegistrations } from '@/hooks/useTrips';
+import { useTrip, useTripRegistrationCounts, useCreateRegistration, useCreateRegistrations } from '@/hooks/useTrips';
 import { sendMessage, buildRegistrationEmail, calcMinRequiredExtraSek, findPromoCode, calcPromoDiscountSek } from '@/lib/messaging';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
@@ -26,7 +26,7 @@ const TripRegistrationPage = () => {
   const [searchParams] = useSearchParams();
   const isEmbed = searchParams.get('embed') === 'true';
   const { data: trip, isLoading: tripLoading } = useTrip(id);
-  const { data: registrations = [] } = useRegistrations(id);
+  const { data: regCounts = {} } = useTripRegistrationCounts();
   const createRegistration = useCreateRegistration();
   const createRegistrations = useCreateRegistrations();
 
@@ -49,7 +49,7 @@ const TripRegistrationPage = () => {
     );
   }
 
-  const regCount = registrations.length;
+  const regCount = id ? (regCounts[id] ?? 0) : 0;
   const spotsLeft = trip.max_participants - regCount;
   const formatDateRange = (start: string, end: string) => {
     const s = new Date(start);

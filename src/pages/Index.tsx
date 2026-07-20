@@ -10,7 +10,7 @@ import PublicFooter from '@/components/layout/PublicFooter';
 import ContactCTA from '@/components/layout/ContactCTA';
 import Logo from '@/components/layout/Logo';
 import TripCard from '@/components/trips/TripCard';
-import { useTrips, useTripRegistrationCounts } from '@/hooks/useTrips';
+import { usePublishedTrips, useTripRegistrationCounts } from '@/hooks/useTrips';
 import { usePageContent } from '@/hooks/usePageContent';
 import { offerings } from '@/data/siteContent';
 import { TripCategory } from '@/types/trip';
@@ -34,15 +34,14 @@ const Index = () => {
     }
   }, [location]);
 
-  const { data: trips = [], isLoading } = useTrips();
+  const { data: publishedTrips = [], isLoading } = usePublishedTrips();
   const { data: regCounts = {} } = useTripRegistrationCounts();
   const { t } = usePageContent('hem');
-  const publishedTrips = trips.filter((t) => t.status === 'published');
-  const filtered = publishedTrips.filter((t) => {
+  const filtered = publishedTrips.filter((trip) => {
     const matchesSearch =
-      t.title.toLowerCase().includes(search.toLowerCase()) ||
-      t.destination.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = category === 'all' || t.category === category;
+      trip.title.toLowerCase().includes(search.toLowerCase()) ||
+      trip.destination.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = category === 'all' || trip.category === category;
     return matchesSearch && matchesCategory;
   });
 
