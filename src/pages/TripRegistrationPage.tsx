@@ -198,14 +198,20 @@ const TripRegistrationPage = () => {
                 {trip.show_spots_left && (!trip.spots_left_threshold || spotsLeft <= trip.spots_left_threshold) && (
                   <div className="flex items-center gap-2 text-sm">
                     <Users className="h-4 w-4 text-primary" />
-                    <span>{spotsLeft > 0 ? `${spotsLeft} platser kvar` : 'Fullbokad'}</span>
+                    <span>{spotsLeft > 0 ? `${spotsLeft} plats${spotsLeft === 1 ? '' : 'er'} kvar` : 'Fullbokad'}</span>
                   </div>
                 )}
 
                 {/* Price */}
                 <div className="rounded-lg bg-accent p-4 text-center">
-                  <p className="text-sm text-muted-foreground">Pris från</p>
-                  <p className="font-heading text-3xl font-bold text-foreground">{fromPrice.toLocaleString('sv-SE')} <span className="text-base">{trip.currency}</span></p>
+                  {fromPrice > 0 ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">Pris från</p>
+                      <p className="font-heading text-3xl font-bold text-foreground">{fromPrice.toLocaleString('sv-SE')} <span className="text-base">{trip.currency}</span></p>
+                    </>
+                  ) : (
+                    <p className="font-heading text-2xl font-bold text-foreground">Pris på förfrågan</p>
+                  )}
                 </div>
 
                 <p className="text-sm text-muted-foreground leading-relaxed">{trip.description}</p>
