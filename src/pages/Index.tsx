@@ -11,6 +11,7 @@ import ContactCTA from '@/components/layout/ContactCTA';
 import Logo from '@/components/layout/Logo';
 import TripCard from '@/components/trips/TripCard';
 import { useTrips, useTripRegistrationCounts } from '@/hooks/useTrips';
+import { usePageContent } from '@/hooks/usePageContent';
 import { offerings } from '@/data/siteContent';
 import { TripCategory } from '@/types/trip';
 
@@ -35,6 +36,7 @@ const Index = () => {
 
   const { data: trips = [], isLoading } = useTrips();
   const { data: regCounts = {} } = useTripRegistrationCounts();
+  const { t } = usePageContent('hem');
   const publishedTrips = trips.filter((t) => t.status === 'published');
   const filtered = publishedTrips.filter((t) => {
     const matchesSearch =
@@ -67,8 +69,7 @@ const Index = () => {
           >
             <Logo className="mb-8 h-14 md:h-20" />
             <p className="text-lg italic leading-relaxed text-sidebar-foreground/80 md:text-xl">
-              Din personliga resebyrå för gruppresor – med specialitet på skidresor med buss. Anmäl
-              dig enkelt och säkert till våra unika reseupplevelser.
+              {t('hero_tagline')}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg">
@@ -85,10 +86,8 @@ const Index = () => {
       {/* Erbjudanden */}
       <section className="border-b bg-background py-16">
         <div className="container">
-          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Våra erbjudanden</h2>
-          <p className="mt-2 text-muted-foreground">
-            Vi hjälper dig med de flesta typer av resor – specialister på skidresor och gruppresor.
-          </p>
+          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('erbjudanden_heading')}</h2>
+          <p className="mt-2 text-muted-foreground">{t('erbjudanden_sub')}</p>
           <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {offerings.map((o) => (
               <Link
@@ -157,21 +156,14 @@ const Index = () => {
       <section className="border-t bg-background py-16">
         <div className="container grid items-center gap-8 md:grid-cols-2">
           <div>
-            <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Om Wille Worldwide</h2>
-            <p className="mt-4 leading-relaxed text-muted-foreground">
-              Din personliga reserådgivare som nyfiket lyssnar på dina drömresor och passionerat
-              inspirerar dig med tips och idéer på äventyr runt om i hela världen. Vi skapar
-              reseminnen tillsammans, blir som en stor familj och träffar vänner för livet.
-            </p>
+            <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('omoss_heading')}</h2>
+            <p className="mt-4 leading-relaxed text-muted-foreground">{t('omoss_text')}</p>
             <Button asChild variant="outline" className="mt-6">
               <Link to="/om-oss">Läs mer om oss</Link>
             </Button>
           </div>
           <div className="rounded-xl border bg-card p-8">
-            <p className="text-lg italic leading-relaxed text-muted-foreground">
-              "Allt vi gör ska göras från hjärtat – en hög servicenivå där vi gör det lilla extra och
-              ser våra kunder mer som våra vänner."
-            </p>
+            <p className="text-lg italic leading-relaxed text-muted-foreground">"{t('omoss_quote')}"</p>
             <p className="mt-4 font-semibold">William Arrhenius Leandersson</p>
           </div>
         </div>

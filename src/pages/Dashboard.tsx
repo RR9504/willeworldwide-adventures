@@ -108,6 +108,9 @@ const Dashboard = () => {
                 <Download className="h-4 w-4" /> Exportera passagerare
               </Button>
             )}
+            <Link to="/dashboard/innehall">
+              <Button variant="outline" className="gap-2"><FileText className="h-4 w-4" /> Redigera innehåll</Button>
+            </Link>
             <Link to="/dashboard/resor/ny">
               <Button className="gap-2"><Plus className="h-4 w-4" /> Skapa resa</Button>
             </Link>

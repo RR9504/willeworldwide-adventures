@@ -13,6 +13,8 @@ import TripPresentationPage from "./pages/TripPresentationPage";
 import PresentationFormPage from "./pages/PresentationFormPage";
 import RegistrationEditPage from "./pages/RegistrationEditPage";
 import AlertListPage from "./pages/AlertListPage";
+import ContentPagesPage from "./pages/ContentPagesPage";
+import ContentEditorPage from "./pages/ContentEditorPage";
 import LoginPage from "./pages/LoginPage";
 import Index from "./pages/Index";
 import OmOss from "./pages/OmOss";
@@ -49,6 +51,8 @@ const App = () => (
           <Route path="/resa/:id/anmalan/:regId" element={<RegistrationEditPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard/innehall" element={<ContentPagesPage />} />
+            <Route path="/dashboard/innehall/:slug" element={<ContentEditorPage />} />
             <Route path="/dashboard/alerts/:type" element={<AlertListPage />} />
             <Route path="/dashboard/resor/ny" element={<CreateTripPage />} />
             <Route path="/dashboard/resor/:id/redigera" element={<CreateTripPage />} />
