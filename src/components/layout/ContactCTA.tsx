@@ -13,7 +13,7 @@ interface ContactCTAProps {
 
 const ContactCTA = ({
   heading = 'Redo att planera din nästa resa?',
-  text = 'Hör av dig så tar vi fram ett förslag utifrån dina drömmar och önskemål. Telefonmöte, fysiskt möte eller hembesök i vårt rullande kontor – du väljer.',
+  text = 'Hör av dig så tar vi fram ett förslag utifrån dina drömmar och önskemål.',
   bookingLink,
   bookingLabel = 'Se avgångar och boka',
 }: ContactCTAProps) => (
