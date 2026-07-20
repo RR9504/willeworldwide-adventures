@@ -10,7 +10,7 @@ import PublicFooter from '@/components/layout/PublicFooter';
 import ContactCTA from '@/components/layout/ContactCTA';
 import Logo from '@/components/layout/Logo';
 import TripCard from '@/components/trips/TripCard';
-import { useTrips } from '@/hooks/useTrips';
+import { useTrips, useTripRegistrationCounts } from '@/hooks/useTrips';
 import { offerings } from '@/data/siteContent';
 import { TripCategory } from '@/types/trip';
 
@@ -34,6 +34,7 @@ const Index = () => {
   }, [location]);
 
   const { data: trips = [], isLoading } = useTrips();
+  const { data: regCounts = {} } = useTripRegistrationCounts();
   const publishedTrips = trips.filter((t) => t.status === 'published');
   const filtered = publishedTrips.filter((t) => {
     const matchesSearch =
@@ -142,7 +143,7 @@ const Index = () => {
         ) : filtered.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((trip) => (
-              <TripCard key={trip.id} trip={trip} />
+              <TripCard key={trip.id} trip={trip} registrationCount={regCounts[trip.id] ?? 0} />
             ))}
           </div>
         ) : (

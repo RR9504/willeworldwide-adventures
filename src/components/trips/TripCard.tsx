@@ -41,9 +41,6 @@ const TripCard = ({ trip, registrationCount = 0 }: TripCardProps) => {
             <Badge className="absolute left-3 top-3 bg-primary text-primary-foreground">
               {categoryLabels[trip.category] || trip.category}
             </Badge>
-            <div className="absolute bottom-3 right-3 font-heading text-xl font-bold text-white">
-              {trip.price.toLocaleString('sv-SE')} {trip.currency}
-            </div>
           </div>
           <CardContent className="space-y-3 p-5">
             <h3 className="font-heading text-lg font-bold leading-tight text-foreground">{trip.title}</h3>
@@ -57,7 +54,7 @@ const TripCard = ({ trip, registrationCount = 0 }: TripCardProps) => {
               {trip.show_spots_left && (!trip.spots_left_threshold || spotsLeft <= trip.spots_left_threshold) && (
                 <span className="flex items-center gap-1.5">
                   <Users className="h-3.5 w-3.5" />
-                  {spotsLeft > 0 ? `${spotsLeft} platser kvar` : 'Fullbokad'}
+                  {spotsLeft > 0 ? `${spotsLeft} plats${spotsLeft === 1 ? '' : 'er'} kvar` : 'Fullbokad'}
                 </span>
               )}
             </div>

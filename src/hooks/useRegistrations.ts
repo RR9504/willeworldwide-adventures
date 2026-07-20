@@ -40,6 +40,22 @@ export function useAllRegistrations() {
   });
 }
 
+/**
+ * Antal anmälningar per resa – returnerar ENDAST antal (aldrig personuppgifter).
+ * Säker att använda på den publika startsidan för "platser kvar".
+ */
+export function useTripRegistrationCounts() {
+  return useQuery({
+    queryKey: ['registrations', 'counts'],
+    queryFn: async () => {
+      const rows = await sql`SELECT trip_id, count(*)::int AS n FROM registrations GROUP BY trip_id`;
+      const counts: Record<string, number> = {};
+      for (const r of rows as { trip_id: string; n: number }[]) counts[r.trip_id] = r.n;
+      return counts;
+    },
+  });
+}
+
 export function useRegistration(regId: string | undefined, tripId?: string) {
   return useQuery({
     queryKey: ['registrations', regId],
