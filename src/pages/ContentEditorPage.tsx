@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ArrowLeft, ExternalLink, Save, RotateCcw, Loader2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Save, Loader2 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,13 +31,6 @@ const ContentEditorPage = () => {
   if (!page) return <Navigate to="/dashboard/innehall" replace />;
 
   const setField = (key: string, val: string) => setValues((v) => ({ ...v, [key]: val }));
-
-  const resetToDefaults = () => {
-    const init: Record<string, string> = {};
-    for (const f of page.fields) init[f.key] = f.default;
-    setValues(init);
-    toast.info('Återställt till standardtext – klicka Spara för att publicera.');
-  };
 
   const handleSave = () => {
     save.mutate(
@@ -73,9 +66,6 @@ const ContentEditorPage = () => {
             </a>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="gap-2" onClick={resetToDefaults} disabled={!ready}>
-              <RotateCcw className="h-4 w-4" /> Standardtext
-            </Button>
             <Button className="gap-2" onClick={handleSave} disabled={!ready || save.isPending}>
               {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               Spara &amp; publicera
