@@ -664,8 +664,11 @@ const CreateTripPage = () => {
 
                 {/* Note */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Betalningsinfo (visas under betalknappen)</Label>
-                  <Input value={paymentNote} onChange={e => setPaymentNote(e.target.value)} placeholder="t.ex. Betalas senast 1 maj" />
+                  <Label className="text-xs">Viktig betalningsinfo</Label>
+                  <Textarea value={paymentNote} onChange={e => setPaymentNote(e.target.value)} rows={3} placeholder="t.ex. Bokningen är bindande. Betalning sker senast den 30 juli..." />
+                  <p className="text-xs text-muted-foreground">
+                    Visas som en gul varningsruta både i anmälningsformuläret (före Skicka-knappen) och på bekräftelsesidan — svår att missa.
+                  </p>
                 </div>
               </CardContent>
             </Card>

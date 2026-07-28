@@ -274,7 +274,10 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
         )}
 
         {paymentInfo?.note && (
-          <p className="text-xs text-muted-foreground">{paymentInfo.note}</p>
+          <div className="flex max-w-md items-start gap-3 rounded-lg border-2 border-yellow-400 bg-yellow-50 p-4 text-left">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-600" />
+            <p className="text-sm font-medium leading-relaxed text-yellow-800">{paymentInfo.note}</p>
+          </div>
         )}
 
         {!paymentInfo && (
@@ -509,6 +512,13 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
           {paymentInfo?.deposit && paymentInfo.deposit > 0 && dynamicTotal > 0 && (
             <p className="text-xs text-muted-foreground">Varav deposition: {(paymentInfo.deposit * totalPeople).toLocaleString('sv-SE')} SEK</p>
           )}
+        </div>
+      )}
+
+      {paymentInfo?.note && (
+        <div className="flex items-start gap-3 rounded-lg border-2 border-yellow-400 bg-yellow-50 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-600" />
+          <p className="text-sm font-medium leading-relaxed text-yellow-800">{paymentInfo.note}</p>
         </div>
       )}
 
