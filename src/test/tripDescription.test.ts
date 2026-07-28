@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseBlocks } from '@/components/trips/TripDescription';
+import { parseBlocks, Block } from '@/components/trips/TripDescription';
+import { serializeBlocks } from '@/components/admin/DescriptionEditor';
 
 describe('parseBlocks', () => {
   it('formaterar beskrivning med radbrytningar till rubriker, listor och stycken', () => {
@@ -49,6 +50,15 @@ describe('parseBlocks', () => {
     expect(parseBlocks(text)).toEqual([{ type: 'paragraph', text }]);
   });
 
+  it('tolkar "## " som explicit rubrik även utan efterföljande lista', () => {
+    const text = '## Bra att veta\nTa med giltigt pass under hela resan.';
+
+    expect(parseBlocks(text)).toEqual([
+      { type: 'heading', text: 'Bra att veta' },
+      { type: 'paragraph', text: 'Ta med giltigt pass under hela resan.' },
+    ]);
+  });
+
   it('stödjer även - och • som listmarkörer', () => {
     const text = 'Ingår\n- Bussresa\n• Frukost';
 
@@ -56,5 +66,29 @@ describe('parseBlocks', () => {
       { type: 'heading', text: 'Ingår' },
       { type: 'list', items: ['Bussresa', 'Frukost'] },
     ]);
+  });
+});
+
+describe('serializeBlocks', () => {
+  it('rundresa: block → text → samma block', () => {
+    const blocks: Block[] = [
+      { type: 'paragraph', text: 'Bussresa till Bratislava 9–12 augusti 2026.' },
+      { type: 'heading', text: 'I resan ingår' },
+      { type: 'list', items: ['Bussresa tur och retur', 'Frukost på tisdagen'] },
+      { type: 'heading', text: 'Bra att veta' },
+      { type: 'paragraph', text: 'Ta med giltigt pass.' },
+    ];
+
+    expect(parseBlocks(serializeBlocks(blocks))).toEqual(blocks);
+  });
+
+  it('hoppar över tomma block och tomma punkter', () => {
+    const blocks: Block[] = [
+      { type: 'heading', text: '  ' },
+      { type: 'list', items: ['Bussresa', '', '  '] },
+      { type: 'paragraph', text: '' },
+    ];
+
+    expect(serializeBlocks(blocks)).toBe('* Bussresa');
   });
 });

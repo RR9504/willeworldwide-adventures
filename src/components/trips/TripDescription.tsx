@@ -1,11 +1,12 @@
 import { Check } from 'lucide-react';
 
-type Block =
+export type Block =
   | { type: 'heading'; text: string }
   | { type: 'paragraph'; text: string }
   | { type: 'list'; items: string[] };
 
 const BULLET_RE = /^[*\-•]\s+/;
+const HEADING_RE = /^##\s+/;
 
 export function parseBlocks(raw: string): Block[] {
   let text = raw.trim();
@@ -21,7 +22,10 @@ export function parseBlocks(raw: string): Block[] {
     const line = lines[i];
     if (!line) continue;
 
-    if (BULLET_RE.test(line)) {
+    if (HEADING_RE.test(line)) {
+      // Explicit rubrik från editorn ("## Rubrik") — alltid rubrik oavsett vad som följer
+      blocks.push({ type: 'heading', text: line.replace(HEADING_RE, '') });
+    } else if (BULLET_RE.test(line)) {
       const items: string[] = [];
       while (i < lines.length && BULLET_RE.test(lines[i])) {
         items.push(lines[i].replace(BULLET_RE, ''));
