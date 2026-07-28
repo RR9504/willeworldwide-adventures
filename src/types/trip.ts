@@ -65,35 +65,6 @@ export interface PromoCode {
   label?: string;
 }
 
-/**
- * Resenärsschema (dagsprogram) för en resa. Skapas genom att admin laddar upp
- * en PDF som AI-tolkas till struktur, eller redigeras direkt.
- * - Sektioner med tidsatta punkter renderas som tidslinje (t.ex. "Söndag 9 augusti – Avresa").
- * - Sektioner utan tider renderas som punktlista (t.ex. "Resefakta", "Viktig information").
- */
-export interface ItineraryItem {
-  /** T.ex. "12.30", "Ca 19.00", "15.00–15.30". Utelämnas för vanliga punkter. */
-  time?: string;
-  text: string;
-}
-
-export interface ItinerarySection {
-  title: string;
-  /** Inledande text före punkterna. */
-  intro?: string;
-  items: ItineraryItem[];
-  /** Avslutande text efter punkterna. */
-  outro?: string;
-}
-
-export interface TripItinerary {
-  /** Välkomsttext/inledning. */
-  intro?: string;
-  sections: ItinerarySection[];
-  /** Avslutning, t.ex. "Trevlig resa!". */
-  outro?: string;
-}
-
 export interface Trip {
   id: string;
   title: string;
@@ -114,7 +85,6 @@ export interface Trip {
   form_fields: FormField[];
   presentation_fields: PresentationQuestion[];
   promo_codes?: PromoCode[];
-  itinerary?: TripItinerary;
   payment_info?: {
     swish?: { number: string; name: string; amount?: number };
     viva?: { url: string; amount?: number };

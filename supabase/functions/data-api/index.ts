@@ -13,12 +13,6 @@ const corsHeaders = {
 
 const sql = neon(Deno.env.get("DATABASE_URL")!);
 
-// Idempotent schemauppdatering vid kallstart — Neon nås bara härifrån,
-// så nya kolumner läggs till här i stället för via separata migrationssteg.
-const schemaReady = sql`ALTER TABLE trips ADD COLUMN IF NOT EXISTS itinerary jsonb`.catch(
-  (e) => console.error("schema migration failed", e),
-);
-
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -77,7 +71,6 @@ serve(async (req) => {
   }
   const action = body.action ?? "";
   const p = body.params ?? {};
-  await schemaReady;
 
   // Admin-gate för allt som inte är publikt.
   if (!PUBLIC_ACTIONS.has(action)) {
@@ -120,14 +113,13 @@ serve(async (req) => {
               presentation_fields=COALESCE(${t.presentation_fields ? JSON.stringify(t.presentation_fields) : null},presentation_fields),
               additional_dates=${t.additional_dates ? JSON.stringify(t.additional_dates) : null},
               promo_codes=${t.promo_codes ? JSON.stringify(t.promo_codes) : null},
-              payment_info=${t.payment_info ? JSON.stringify(t.payment_info) : null},
-              itinerary=${t.itinerary ? JSON.stringify(t.itinerary) : null}
+              payment_info=${t.payment_info ? JSON.stringify(t.payment_info) : null}
             WHERE id=${t.id} RETURNING *`;
           return json(rows[0]);
         }
         const rows = await sql`
-          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, promo_codes, payment_info, itinerary)
-          VALUES (${t.title}, ${t.description}, ${t.destination}, ${t.category}, ${t.start_date}, ${t.end_date}, ${t.price}, ${t.currency}, ${t.max_participants}, ${t.show_spots_left}, ${t.spots_left_threshold ?? null}, ${t.image_url}, ${t.image_position ?? null}, ${t.status}, ${JSON.stringify(t.form_fields)}, ${JSON.stringify(t.presentation_fields)}, ${t.additional_dates ? JSON.stringify(t.additional_dates) : null}, ${t.promo_codes ? JSON.stringify(t.promo_codes) : null}, ${t.payment_info ? JSON.stringify(t.payment_info) : null}, ${t.itinerary ? JSON.stringify(t.itinerary) : null})
+          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, promo_codes, payment_info)
+          VALUES (${t.title}, ${t.description}, ${t.destination}, ${t.category}, ${t.start_date}, ${t.end_date}, ${t.price}, ${t.currency}, ${t.max_participants}, ${t.show_spots_left}, ${t.spots_left_threshold ?? null}, ${t.image_url}, ${t.image_position ?? null}, ${t.status}, ${JSON.stringify(t.form_fields)}, ${JSON.stringify(t.presentation_fields)}, ${t.additional_dates ? JSON.stringify(t.additional_dates) : null}, ${t.promo_codes ? JSON.stringify(t.promo_codes) : null}, ${t.payment_info ? JSON.stringify(t.payment_info) : null})
           RETURNING *`;
         return json(rows[0]);
       }
@@ -136,8 +128,8 @@ serve(async (req) => {
         const src = (await sql`SELECT * FROM trips WHERE id = ${p.id as string}`)[0];
         if (!src) return json({ error: "Trip not found" }, 404);
         const rows = await sql`
-          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, promo_codes, payment_info, itinerary)
-          VALUES (${`${src.title} (kopia)`}, ${src.description}, ${src.destination}, ${src.category}, ${src.start_date}, ${src.end_date}, ${src.price}, ${src.currency}, ${src.max_participants}, ${src.show_spots_left}, ${src.spots_left_threshold ?? null}, ${src.image_url}, ${src.image_position ?? null}, ${"draft"}, ${JSON.stringify(src.form_fields)}, ${JSON.stringify(src.presentation_fields)}, ${src.additional_dates ? JSON.stringify(src.additional_dates) : null}, ${src.promo_codes ? JSON.stringify(src.promo_codes) : null}, ${src.payment_info ? JSON.stringify(src.payment_info) : null}, ${src.itinerary ? JSON.stringify(src.itinerary) : null})
+          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, promo_codes, payment_info)
+          VALUES (${`${src.title} (kopia)`}, ${src.description}, ${src.destination}, ${src.category}, ${src.start_date}, ${src.end_date}, ${src.price}, ${src.currency}, ${src.max_participants}, ${src.show_spots_left}, ${src.spots_left_threshold ?? null}, ${src.image_url}, ${src.image_position ?? null}, ${"draft"}, ${JSON.stringify(src.form_fields)}, ${JSON.stringify(src.presentation_fields)}, ${src.additional_dates ? JSON.stringify(src.additional_dates) : null}, ${src.promo_codes ? JSON.stringify(src.promo_codes) : null}, ${src.payment_info ? JSON.stringify(src.payment_info) : null})
           RETURNING *`;
         return json(rows[0]);
       }
