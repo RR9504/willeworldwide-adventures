@@ -65,6 +65,19 @@ export interface PromoCode {
   label?: string;
 }
 
+/**
+ * Nedladdningsbar info-fil (PDF) som visas för kunder på bokningssidan,
+ * t.ex. reseprogram eller packlista. Lagras i Supabase Storage.
+ */
+export interface TripInfoFile {
+  /** Visningsnamn på bokningssidan, t.ex. "Resenärsschema". */
+  name: string;
+  /** Publik nedladdnings-URL. */
+  url: string;
+  /** Sökväg i storage-bucketen — används för borttagning. */
+  path: string;
+}
+
 export interface Trip {
   id: string;
   title: string;
@@ -85,6 +98,7 @@ export interface Trip {
   form_fields: FormField[];
   presentation_fields: PresentationQuestion[];
   promo_codes?: PromoCode[];
+  info_files?: TripInfoFile[];
   payment_info?: {
     swish?: { number: string; name: string; amount?: number };
     viva?: { url: string; amount?: number };

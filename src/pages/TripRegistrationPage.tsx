@@ -1,5 +1,5 @@
 import { useParams, useSearchParams } from 'react-router-dom';
-import { CalendarDays, MapPin, Users, Share2, Loader2, Clock } from 'lucide-react';
+import { CalendarDays, MapPin, Users, Share2, Loader2, Clock, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -216,6 +216,28 @@ const TripRegistrationPage = () => {
                 </div>
 
                 <TripDescription text={trip.description} />
+
+                {/* Nedladdningsbara info-filer, t.ex. reseprogram och packlista */}
+                {trip.info_files && trip.info_files.length > 0 && (
+                  <div className="space-y-2">
+                    {trip.info_files.map(file => (
+                      <a
+                        key={file.path}
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 rounded-lg border p-3 text-sm transition-colors hover:bg-accent"
+                      >
+                        <FileText className="h-5 w-5 shrink-0 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">PDF</p>
+                        </div>
+                        <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </a>
+                    ))}
+                  </div>
+                )}
 
                 {!isEmbed && (
                   <Button variant="ghost" size="sm" className="w-full gap-2 text-muted-foreground" onClick={handleShare}><Share2 className="h-4 w-4" /> Dela resa</Button>

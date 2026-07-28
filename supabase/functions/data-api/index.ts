@@ -13,6 +13,12 @@ const corsHeaders = {
 
 const sql = neon(Deno.env.get("DATABASE_URL")!);
 
+// Idempotent schemauppdatering vid kallstart — Neon nås bara härifrån,
+// så nya kolumner läggs till här i stället för via separata migrationssteg.
+const schemaReady = sql`ALTER TABLE trips ADD COLUMN IF NOT EXISTS info_files jsonb`.catch(
+  (e) => console.error("schema migration failed", e),
+);
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -71,6 +77,7 @@ serve(async (req) => {
   }
   const action = body.action ?? "";
   const p = body.params ?? {};
+  await schemaReady;
 
   // Admin-gate för allt som inte är publikt.
   if (!PUBLIC_ACTIONS.has(action)) {
@@ -113,13 +120,14 @@ serve(async (req) => {
               presentation_fields=COALESCE(${t.presentation_fields ? JSON.stringify(t.presentation_fields) : null},presentation_fields),
               additional_dates=${t.additional_dates ? JSON.stringify(t.additional_dates) : null},
               promo_codes=${t.promo_codes ? JSON.stringify(t.promo_codes) : null},
-              payment_info=${t.payment_info ? JSON.stringify(t.payment_info) : null}
+              payment_info=${t.payment_info ? JSON.stringify(t.payment_info) : null},
+              info_files=${t.info_files ? JSON.stringify(t.info_files) : null}
             WHERE id=${t.id} RETURNING *`;
           return json(rows[0]);
         }
         const rows = await sql`
-          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, promo_codes, payment_info)
-          VALUES (${t.title}, ${t.description}, ${t.destination}, ${t.category}, ${t.start_date}, ${t.end_date}, ${t.price}, ${t.currency}, ${t.max_participants}, ${t.show_spots_left}, ${t.spots_left_threshold ?? null}, ${t.image_url}, ${t.image_position ?? null}, ${t.status}, ${JSON.stringify(t.form_fields)}, ${JSON.stringify(t.presentation_fields)}, ${t.additional_dates ? JSON.stringify(t.additional_dates) : null}, ${t.promo_codes ? JSON.stringify(t.promo_codes) : null}, ${t.payment_info ? JSON.stringify(t.payment_info) : null})
+          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, promo_codes, payment_info, info_files)
+          VALUES (${t.title}, ${t.description}, ${t.destination}, ${t.category}, ${t.start_date}, ${t.end_date}, ${t.price}, ${t.currency}, ${t.max_participants}, ${t.show_spots_left}, ${t.spots_left_threshold ?? null}, ${t.image_url}, ${t.image_position ?? null}, ${t.status}, ${JSON.stringify(t.form_fields)}, ${JSON.stringify(t.presentation_fields)}, ${t.additional_dates ? JSON.stringify(t.additional_dates) : null}, ${t.promo_codes ? JSON.stringify(t.promo_codes) : null}, ${t.payment_info ? JSON.stringify(t.payment_info) : null}, ${t.info_files ? JSON.stringify(t.info_files) : null})
           RETURNING *`;
         return json(rows[0]);
       }
@@ -128,8 +136,8 @@ serve(async (req) => {
         const src = (await sql`SELECT * FROM trips WHERE id = ${p.id as string}`)[0];
         if (!src) return json({ error: "Trip not found" }, 404);
         const rows = await sql`
-          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, promo_codes, payment_info)
-          VALUES (${`${src.title} (kopia)`}, ${src.description}, ${src.destination}, ${src.category}, ${src.start_date}, ${src.end_date}, ${src.price}, ${src.currency}, ${src.max_participants}, ${src.show_spots_left}, ${src.spots_left_threshold ?? null}, ${src.image_url}, ${src.image_position ?? null}, ${"draft"}, ${JSON.stringify(src.form_fields)}, ${JSON.stringify(src.presentation_fields)}, ${src.additional_dates ? JSON.stringify(src.additional_dates) : null}, ${src.promo_codes ? JSON.stringify(src.promo_codes) : null}, ${src.payment_info ? JSON.stringify(src.payment_info) : null})
+          INSERT INTO trips (title, description, destination, category, start_date, end_date, price, currency, max_participants, show_spots_left, spots_left_threshold, image_url, image_position, status, form_fields, presentation_fields, additional_dates, promo_codes, payment_info, info_files)
+          VALUES (${`${src.title} (kopia)`}, ${src.description}, ${src.destination}, ${src.category}, ${src.start_date}, ${src.end_date}, ${src.price}, ${src.currency}, ${src.max_participants}, ${src.show_spots_left}, ${src.spots_left_threshold ?? null}, ${src.image_url}, ${src.image_position ?? null}, ${"draft"}, ${JSON.stringify(src.form_fields)}, ${JSON.stringify(src.presentation_fields)}, ${src.additional_dates ? JSON.stringify(src.additional_dates) : null}, ${src.promo_codes ? JSON.stringify(src.promo_codes) : null}, ${src.payment_info ? JSON.stringify(src.payment_info) : null}, ${src.info_files ? JSON.stringify(src.info_files) : null})
           RETURNING *`;
         return json(rows[0]);
       }
@@ -137,6 +145,40 @@ serve(async (req) => {
       case "trips.delete":
         await sql`DELETE FROM trips WHERE id = ${p.id as string}`;
         return json({ ok: true });
+
+      // ---------- TRIP FILES (info-PDF:er i Supabase Storage) ----------
+      case "tripFiles.upload": {
+        const filename = String(p.filename ?? "");
+        const content_base64 = String(p.content_base64 ?? "");
+        if (!filename || !content_base64) return json({ error: "filename och content_base64 krävs" }, 400);
+        if (!/\.pdf$/i.test(filename)) return json({ error: "Endast PDF-filer stöds" }, 400);
+        // ~10 MB fil = ~14 MB base64
+        if (content_base64.length > 14_000_000) return json({ error: "Filen är för stor (max 10 MB)" }, 413);
+
+        const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+        // Skapa bucketen om den inte finns (idempotent — felet ignoreras om den redan finns).
+        await admin.storage.createBucket("trip-files", { public: true }).catch(() => {});
+
+        const bytes = Uint8Array.from(atob(content_base64), (c) => c.charCodeAt(0));
+        const safe = filename.replace(/[^a-zA-Z0-9åäöÅÄÖ._-]+/g, "-");
+        const path = `${Date.now()}-${safe}`;
+        const { error: upErr } = await admin.storage
+          .from("trip-files")
+          .upload(path, new Blob([bytes], { type: "application/pdf" }), { contentType: "application/pdf" });
+        if (upErr) return json({ error: `Uppladdningen misslyckades: ${upErr.message}` }, 500);
+
+        const { data: pub } = admin.storage.from("trip-files").getPublicUrl(path);
+        return json({ path, url: pub.publicUrl });
+      }
+
+      case "tripFiles.delete": {
+        const path = String(p.path ?? "");
+        if (!path) return json({ error: "path krävs" }, 400);
+        const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+        const { error: rmErr } = await admin.storage.from("trip-files").remove([path]);
+        if (rmErr) return json({ error: rmErr.message }, 500);
+        return json({ ok: true });
+      }
 
       // ---------- REGISTRATIONS ----------
       case "registrations.create": {

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Eye, Save, Loader2, Tag } from 'lucide-react';
+import { ArrowLeft, Plus, Eye, Save, Loader2, Tag, FileText, FileUp, ExternalLink, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,8 +13,9 @@ import { Separator } from '@/components/ui/separator';
 import Header from '@/components/layout/Header';
 import FormFieldList from '@/components/admin/FormFieldList';
 import FormPreview from '@/components/admin/FormPreview';
-import { Trip, TripCategory, TripStatus, TripDateRange, FormField, FormFieldType, PresentationQuestion, PromoCode } from '@/types/trip';
+import { Trip, TripCategory, TripStatus, TripDateRange, FormField, FormFieldType, PresentationQuestion, PromoCode, TripInfoFile } from '@/types/trip';
 import DescriptionEditor from '@/components/admin/DescriptionEditor';
+import { uploadTripInfoFile, deleteTripInfoFile } from '@/lib/tripFiles';
 import { useTrip, useSaveTrip } from '@/hooks/useTrips';
 import { formTemplates } from '@/data/formTemplates';
 import { toast } from 'sonner';
@@ -86,6 +87,31 @@ const CreateTripPage = () => {
   const [depositAmount, setDepositAmount] = useState(existingTrip?.payment_info?.deposit?.toString() || '');
   const [paymentNote, setPaymentNote] = useState(existingTrip?.payment_info?.note || '');
   const [saving, setSaving] = useState(false);
+  const [infoFiles, setInfoFiles] = useState<TripInfoFile[]>(existingTrip?.info_files || []);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  const handleInfoPdfSelected = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setUploadingPdf(true);
+    try {
+      for (const file of Array.from(files)) {
+        const uploaded = await uploadTripInfoFile(file);
+        setInfoFiles(prev => [...prev, uploaded]);
+      }
+      toast.success('PDF uppladdad! Glöm inte att spara resan.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Uppladdningen misslyckades');
+    } finally {
+      setUploadingPdf(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
+    }
+  };
+
+  const removeInfoFile = (file: TripInfoFile) => {
+    setInfoFiles(prev => prev.filter(f => f.path !== file.path));
+    deleteTripInfoFile(file.path);
+  };
 
   const addField = (type: FormFieldType) => {
     const newField: FormField = {
@@ -152,6 +178,7 @@ const CreateTripPage = () => {
         promo_codes: promoCodes.length > 0
           ? promoCodes.map(p => ({ ...p, code: p.code.trim(), label: p.label?.trim() || undefined }))
           : undefined,
+        info_files: infoFiles.length > 0 ? infoFiles : undefined,
         payment_info: (swishEnabled || vivaEnabled || depositAmount) ? {
           ...(swishEnabled ? { swish: { number: swishNumber, name: swishName, amount: swishAmount ? Number(swishAmount) : undefined } } : {}),
           ...(vivaEnabled ? { viva: { url: vivaUrl, amount: vivaAmount ? Number(vivaAmount) : undefined } } : {}),
@@ -221,6 +248,41 @@ const CreateTripPage = () => {
                 <div className="space-y-1.5">
                   <Label>Beskrivning</Label>
                   <DescriptionEditor value={description} onChange={setDescription} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Info-PDF:er till kunderna</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Ladda upp t.ex. reseprogram eller packlista — visas som nedladdningsbara filer på bokningssidan så kunderna hittar svaren själva.
+                  </p>
+                  {infoFiles.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      {infoFiles.map(file => (
+                        <div key={file.path} className="flex items-center gap-2 rounded-lg border p-2 pl-3">
+                          <FileText className="h-4 w-4 shrink-0 text-primary" />
+                          <Input
+                            value={file.name}
+                            onChange={e => setInfoFiles(prev => prev.map(f => (f.path === file.path ? { ...f, name: e.target.value } : f)))}
+                            placeholder="Visningsnamn, t.ex. Resenärsschema"
+                            className="h-8 border-0 px-1 text-sm shadow-none focus-visible:ring-0"
+                          />
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground" asChild title="Öppna PDF">
+                            <a href={file.url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" onClick={() => removeInfoFile(file)} title="Ta bort fil">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <input ref={pdfInputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={e => handleInfoPdfSelected(e.target.files)} />
+                  <div className="pt-1">
+                    <Button type="button" variant="outline" size="sm" className="gap-2" disabled={uploadingPdf} onClick={() => pdfInputRef.current?.click()}>
+                      {uploadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+                      {uploadingPdf ? 'Laddar upp...' : 'Ladda upp PDF'}
+                    </Button>
+                  </div>
                 </div>
 
                 <Separator />
