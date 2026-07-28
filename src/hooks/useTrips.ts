@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { callApi } from '@/lib/api';
-import { Trip, TripCategory, TripStatus, FormField, PresentationQuestion, TripDateRange, PromoCode } from '@/types/trip';
+import { Trip, TripCategory, TripStatus, FormField, PresentationQuestion, TripDateRange, PromoCode, TripItinerary } from '@/types/trip';
 
 // Re-export registration hooks so pages can import everything from useTrips
 export { useRegistrations, useAllRegistrations, useTripRegistrationCounts, useRegistration, useRegistrationById, useUpdateOwnRegistration, useCreateRegistration, useCreateRegistrations, useUpdateRegistration, useDeleteRegistration } from './useRegistrations';
@@ -26,6 +26,7 @@ function mapTrip(row: any): Trip {
     presentation_fields: (typeof row.presentation_fields === 'string' ? JSON.parse(row.presentation_fields) : row.presentation_fields) as PresentationQuestion[],
     additional_dates: row.additional_dates ? (typeof row.additional_dates === 'string' ? JSON.parse(row.additional_dates) : row.additional_dates) as TripDateRange[] : undefined,
     promo_codes: row.promo_codes ? (typeof row.promo_codes === 'string' ? JSON.parse(row.promo_codes) : row.promo_codes) as PromoCode[] : undefined,
+    itinerary: row.itinerary ? (typeof row.itinerary === 'string' ? JSON.parse(row.itinerary) : row.itinerary) as TripItinerary : undefined,
     payment_info: row.payment_info ? (typeof row.payment_info === 'string' ? JSON.parse(row.payment_info) : row.payment_info) : undefined,
     created_at: row.created_at,
     updated_at: row.updated_at,

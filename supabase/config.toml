@@ -4,3 +4,7 @@ project_id = "vsvqiiofoylrgddhdcss"
 # därför stänger vi av gateway-JWT-kravet så publika anrop (t.ex. skapa anmälan) fungerar.
 [functions.data-api]
 verify_jwt = false
+
+# parse-itinerary gör egen admin-kontroll inuti funktionen (samma mönster som data-api).
+[functions.parse-itinerary]
+verify_jwt = false

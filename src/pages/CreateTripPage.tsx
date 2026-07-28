@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Eye, Save, Loader2, Tag } from 'lucide-react';
+import { useRef } from 'react';
+import { ArrowLeft, Plus, Eye, Save, Loader2, Tag, FileUp, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,7 +14,9 @@ import { Separator } from '@/components/ui/separator';
 import Header from '@/components/layout/Header';
 import FormFieldList from '@/components/admin/FormFieldList';
 import FormPreview from '@/components/admin/FormPreview';
-import { Trip, TripCategory, TripStatus, TripDateRange, FormField, FormFieldType, PresentationQuestion, PromoCode } from '@/types/trip';
+import { Trip, TripCategory, TripStatus, TripDateRange, FormField, FormFieldType, PresentationQuestion, PromoCode, TripItinerary } from '@/types/trip';
+import { parseItineraryPdf } from '@/lib/itinerary';
+import { TripItineraryView } from '@/components/trips/TripItineraryView';
 import { useTrip, useSaveTrip } from '@/hooks/useTrips';
 import { formTemplates } from '@/data/formTemplates';
 import { toast } from 'sonner';
@@ -85,6 +88,30 @@ const CreateTripPage = () => {
   const [depositAmount, setDepositAmount] = useState(existingTrip?.payment_info?.deposit?.toString() || '');
   const [paymentNote, setPaymentNote] = useState(existingTrip?.payment_info?.note || '');
   const [saving, setSaving] = useState(false);
+  const [itinerary, setItinerary] = useState<TripItinerary | undefined>(existingTrip?.itinerary);
+  const [parsingPdf, setParsingPdf] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePdfSelected = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      toast.error('Välj en PDF-fil');
+      return;
+    }
+    setParsingPdf(true);
+    try {
+      const result = await parseItineraryPdf(file);
+      if (result.success && result.itinerary) {
+        setItinerary(result.itinerary);
+        toast.success('Reseschemat är inläst! Kontrollera förhandsvisningen och spara resan.');
+      } else {
+        toast.error(result.error || 'Kunde inte tolka PDF:en');
+      }
+    } finally {
+      setParsingPdf(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
+    }
+  };
 
   const addField = (type: FormFieldType) => {
     const newField: FormField = {
@@ -151,6 +178,7 @@ const CreateTripPage = () => {
         promo_codes: promoCodes.length > 0
           ? promoCodes.map(p => ({ ...p, code: p.code.trim(), label: p.label?.trim() || undefined }))
           : undefined,
+        itinerary,
         payment_info: (swishEnabled || vivaEnabled || depositAmount) ? {
           ...(swishEnabled ? { swish: { number: swishNumber, name: swishName, amount: swishAmount ? Number(swishAmount) : undefined } } : {}),
           ...(vivaEnabled ? { viva: { url: vivaUrl, amount: vivaAmount ? Number(vivaAmount) : undefined } } : {}),
@@ -219,7 +247,33 @@ const CreateTripPage = () => {
 
                 <div className="space-y-1.5">
                   <Label>Beskrivning</Label>
-                  <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Beskriv resan..." rows={4} />
+                  <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={'Beskriv resan...\n\nI resan ingår\n* Bussresa tur och retur\n* 1 övernattning med frukost'} rows={8} />
+                  <p className="text-xs text-muted-foreground">Rader som börjar med * visas som punktlista. Korta rader före en lista (t.ex. "I resan ingår") blir rubriker.</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Resenärsschema (PDF)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Ladda upp reseprogrammet som PDF så tolkas det automatiskt och visas som ett snyggt dagsschema på bokningssidan.
+                  </p>
+                  <input ref={pdfInputRef} type="file" accept="application/pdf" className="hidden" onChange={e => handlePdfSelected(e.target.files?.[0])} />
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button type="button" variant="outline" size="sm" className="gap-2" disabled={parsingPdf} onClick={() => pdfInputRef.current?.click()}>
+                      {parsingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+                      {parsingPdf ? 'Tolkar PDF...' : itinerary ? 'Byt ut schema' : 'Ladda upp PDF'}
+                    </Button>
+                    {itinerary && !parsingPdf && (
+                      <Button type="button" variant="ghost" size="sm" className="gap-2 text-destructive" onClick={() => setItinerary(undefined)}>
+                        <Trash2 className="h-4 w-4" /> Ta bort schema
+                      </Button>
+                    )}
+                  </div>
+                  {itinerary && (
+                    <div className="pt-3">
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">Förhandsvisning — så här ser schemat ut på bokningssidan:</p>
+                      <TripItineraryView itinerary={itinerary} />
+                    </div>
+                  )}
                 </div>
 
                 <Separator />

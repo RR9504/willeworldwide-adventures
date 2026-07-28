@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import DynamicForm, { SubmitMeta } from '@/components/trips/DynamicForm';
+import { TripDescription } from '@/components/trips/TripDescription';
+import { TripItineraryView } from '@/components/trips/TripItineraryView';
 import { useTrip, useTripRegistrationCounts, useCreateRegistration, useCreateRegistrations } from '@/hooks/useTrips';
 import { sendMessage, buildRegistrationEmail, calcMinRequiredExtraSek, findPromoCode, calcPromoDiscountSek } from '@/lib/messaging';
 import { motion } from 'framer-motion';
@@ -214,7 +216,7 @@ const TripRegistrationPage = () => {
                   )}
                 </div>
 
-                <p className="text-sm text-muted-foreground leading-relaxed">{trip.description}</p>
+                <TripDescription text={trip.description} />
 
                 {!isEmbed && (
                   <Button variant="ghost" size="sm" className="w-full gap-2 text-muted-foreground" onClick={handleShare}><Share2 className="h-4 w-4" /> Dela resa</Button>
@@ -239,6 +241,12 @@ const TripRegistrationPage = () => {
             </Card>
           </motion.div>
         </div>
+
+        {trip.itinerary && trip.itinerary.sections.length > 0 && (
+          <motion.div className="mx-auto mt-8 max-w-3xl" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
+            <TripItineraryView itinerary={trip.itinerary} />
+          </motion.div>
+        )}
       </main>
 
       {!isEmbed && (
