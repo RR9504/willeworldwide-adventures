@@ -24,7 +24,8 @@ export interface SubmitMeta {
 interface DynamicFormProps {
   fields: FormField[];
   presentationFields?: PresentationQuestion[];
-  onSubmit: (data: Record<string, any>, companions?: Record<string, any>[], meta?: SubmitMeta) => void;
+  /** Returnera false (eller kasta) om sparningen misslyckas — då visas inte bekräftelsen. */
+  onSubmit: (data: Record<string, any>, companions?: Record<string, any>[], meta?: SubmitMeta) => void | boolean | Promise<void | boolean>;
   isSubmitting?: boolean;
   paymentInfo?: Trip['payment_info'];
   tripPrice?: number;
@@ -38,6 +39,7 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
   const [companionPresentations, setCompanionPresentations] = useState<Record<string, string>[]>([]);
   const [gdprAccepted, setGdprAccepted] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
@@ -171,9 +173,9 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate() || saving) return;
     const meta: SubmitMeta = {
       extraCosts: allModifiers,
       dynamicTotal,
@@ -183,8 +185,17 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
       presentationData,
       companionPresentations,
     };
-    onSubmit(formData, companions.length > 0 ? companions : undefined, meta);
-    setSubmitted(true);
+    // Visa bekräftelsen (med betalinfo!) först när anmälan bevisligen är sparad —
+    // annars betalar kunden för en bokning som aldrig nådde databasen.
+    setSaving(true);
+    try {
+      const result = await onSubmit(formData, companions.length > 0 ? companions : undefined, meta);
+      if (result !== false) setSubmitted(true);
+    } catch {
+      // Sidan visar eget felmeddelande via toast.
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (submitted) {
@@ -532,8 +543,8 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
         {errors['gdpr'] && <p className="text-xs text-destructive">{errors['gdpr']}</p>}
       </div>
 
-      <Button type="submit" size="lg" className="w-full font-heading font-semibold" disabled={isSubmitting}>
-        {isSubmitting ? 'Skickar...' : totalPeople > 1 ? `Skicka anmälan (${totalPeople} resenärer)` : 'Skicka anmälan'}
+      <Button type="submit" size="lg" className="w-full font-heading font-semibold" disabled={isSubmitting || saving}>
+        {isSubmitting || saving ? 'Skickar...' : totalPeople > 1 ? `Skicka anmälan (${totalPeople} resenärer)` : 'Skicka anmälan'}
       </Button>
     </form>
   );

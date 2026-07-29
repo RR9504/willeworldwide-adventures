@@ -60,6 +60,8 @@ const PUBLIC_ACTIONS = new Set([
   "trips.counts",
   "pageContent.get",
   "registrations.create",
+  // Gruppanmälan (huvudbokare + medresenärer) görs av kunder utan inloggning.
+  "registrations.createMany",
   // Capability-länk: en registrant läser/kompletterar SIN egen anmälan via dess UUID.
   "registrations.getOne",
   "registrations.updateOwn",

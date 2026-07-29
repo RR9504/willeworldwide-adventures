@@ -113,7 +113,7 @@ const TripRegistrationPage = () => {
     }
   };
 
-  const handleSubmit = async (data: Record<string, any>, companions?: Record<string, any>[], meta?: SubmitMeta) => {
+  const handleSubmit = async (data: Record<string, any>, companions?: Record<string, any>[], meta?: SubmitMeta): Promise<boolean> => {
     try {
       const groupId = companions?.length ? crypto.randomUUID() : undefined;
       const extraCosts = meta?.extraCosts || {};
@@ -143,8 +143,11 @@ const TripRegistrationPage = () => {
         toast.success('Anmälan skickad!');
         sendRegistrationEmails([mainData], [presentationData], extraCosts, tbdLabels, promoCode);
       }
-    } catch {
-      toast.error('Något gick fel. Försök igen.');
+      return true;
+    } catch (err) {
+      console.error('Anmälan kunde inte sparas:', err);
+      toast.error('Anmälan kunde inte sparas — försök igen. Betala inte förrän du sett bekräftelsen.', { duration: 10000 });
+      return false;
     }
   };
 
