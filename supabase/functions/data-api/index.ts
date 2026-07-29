@@ -84,7 +84,11 @@ serve(async (req) => {
   // Admin-gate för allt som inte är publikt.
   if (!PUBLIC_ACTIONS.has(action)) {
     const gate = await requireAdmin(req);
-    if (!gate.ok) return gate.res;
+    if (!gate.ok) {
+      // Loggas så nekade anrop går att granska i efterhand (syns i funktionsloggarna).
+      console.warn("data-api access denied", { action, status: gate.res.status });
+      return gate.res;
+    }
   }
 
   try {
