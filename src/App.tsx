@@ -22,6 +22,7 @@ import OmOss from "./pages/OmOss";
 import Kontakt from "./pages/Kontakt";
 import OfferingPage from "./pages/OfferingPage";
 import NotFound from "./pages/NotFound";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const ProtectedRoute = () => {
 };
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
@@ -75,6 +77,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

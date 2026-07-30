@@ -129,6 +129,11 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
     setErrors(prev => ({ ...prev, [`companion_${idx}_pres_${pf.id}`]: '' }));
   };
 
+  // Telefonformat: xxx-xxxxxxx (t.ex. 070-1234567). Mellanslag tillåts och ignoreras,
+  // så "070-123 45 67" (som platshållaren visar) godkänns också.
+  const isValidPhone = (value: string) => /^\d{3}-\d{7}$/.test(String(value).replace(/\s/g, ''));
+  const PHONE_ERROR = 'Ange telefonnummer i formatet xxx-xxxxxxx, t.ex. 070-1234567';
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
@@ -140,6 +145,9 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
       if (field.type === 'email' && formData[field.label] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData[field.label])) {
         newErrors[field.label] = 'Ogiltig e-postadress';
       }
+      if (field.type === 'phone' && formData[field.label] && !isValidPhone(formData[field.label])) {
+        newErrors[field.label] = PHONE_ERROR;
+      }
     });
 
     // Validate companions
@@ -150,6 +158,9 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
         }
         if (field.type === 'email' && companion[field.label] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(companion[field.label])) {
           newErrors[`companion_${idx}_${field.label}`] = 'Ogiltig e-postadress';
+        }
+        if (field.type === 'phone' && companion[field.label] && !isValidPhone(companion[field.label])) {
+          newErrors[`companion_${idx}_${field.label}`] = PHONE_ERROR;
         }
       });
     });
@@ -315,13 +326,18 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
           </p>
         )}
         {field.type === 'text' || field.type === 'email' || field.type === 'phone' ? (
-          <Input
-            type={field.type === 'phone' ? 'tel' : field.type}
-            placeholder={field.placeholder}
-            value={data[field.label] || ''}
-            onChange={e => updateFn(field.label, e.target.value)}
-            className={error ? 'border-destructive' : ''}
-          />
+          <>
+            <Input
+              type={field.type === 'phone' ? 'tel' : field.type}
+              placeholder={field.placeholder}
+              value={data[field.label] || ''}
+              onChange={e => updateFn(field.label, e.target.value)}
+              className={error ? 'border-destructive' : ''}
+            />
+            {field.type === 'phone' && !error && (
+              <p className="text-xs text-muted-foreground">Format: xxx-xxxxxxx, t.ex. 070-1234567</p>
+            )}
+          </>
         ) : field.type === 'textarea' ? (
           <Textarea
             placeholder={field.placeholder}
