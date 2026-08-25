@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EditableFormField } from '@/components/trips/EditableFormField';
 import { useTrip, useRegistrationById, useUpdateOwnRegistration } from '@/hooks/useTrips';
 import { toast } from 'sonner';
+import { isValidPhone, normalizePhone, PHONE_ERROR } from '@/lib/phone';
 
 // Publik länk för kunden att komplettera/uppdatera sin anmälan.
 // Pre-fyller med befintliga svar; ingen GDPR-prompt eller pristotal — det här är "komplettera" inte "anmäla".
@@ -40,8 +41,23 @@ const RegistrationEditPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Samma telefonkontroll som i anmälningsformuläret — annars kan ett trasigt
+    // nummer smyga in via redigeringslänken och sabba SMS-utskicket.
+    const phoneFields = trip.form_fields.filter(f => f.type === 'phone');
+    const badPhone = phoneFields.find(f => draft[f.label] && !isValidPhone(draft[f.label]));
+    if (badPhone) {
+      toast.error(`${badPhone.label}: ${PHONE_ERROR}`);
+      return;
+    }
+
+    const form_data = { ...draft };
+    phoneFields.forEach(f => {
+      if (form_data[f.label]) form_data[f.label] = normalizePhone(form_data[f.label]);
+    });
+
     try {
-      await updateRegistration.mutateAsync({ id: reg.id, form_data: draft });
+      await updateRegistration.mutateAsync({ id: reg.id, form_data });
       toast.success('Tack! Dina uppgifter är sparade.');
       setSaved(true);
     } catch (err) {

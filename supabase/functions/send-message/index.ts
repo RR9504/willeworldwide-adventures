@@ -76,17 +76,23 @@ async function sendEmail(
 }
 
 function formatPhone(phone: string): string {
-  // Remove spaces, dashes, parens
-  let cleaned = phone.replace(/[\s\-()]/g, "");
-  // Convert leading 0 to +46
-  if (cleaned.startsWith("0")) {
-    cleaned = "+46" + cleaned.slice(1);
+  // Behåll bara siffror + ett ev. inledande plus — kunden kan ha skrivit
+  // "070-123 45 67", "(070) 1234567" eller "+46 70 123 45 67".
+  const hasPlus = phone.trim().startsWith("+");
+  let digits = phone.replace(/\D/g, "");
+
+  // 0046… är landskod, inte ett svenskt nummer som börjar på 0.
+  if (!hasPlus && digits.startsWith("00")) {
+    return "+" + digits.slice(2);
   }
-  // Ensure starts with +
-  if (!cleaned.startsWith("+")) {
-    cleaned = "+" + cleaned;
+  if (hasPlus) {
+    return "+" + digits;
   }
-  return cleaned;
+  // Nationellt format: ledande 0 byts mot landskoden.
+  if (digits.startsWith("0")) {
+    digits = "46" + digits.slice(1);
+  }
+  return "+" + digits;
 }
 
 function personalizeMessage(message: string, recipient: Recipient): string {

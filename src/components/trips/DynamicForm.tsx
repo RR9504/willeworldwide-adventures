@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, CreditCard, Smartphone, AlertTriangle, UserPlus, X, Tag } from 'lucide-react';
 import { calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek } from '@/lib/messaging';
+import { isValidPhone, normalizePhone, PHONE_ERROR, PHONE_HINT } from '@/lib/phone';
 
 export interface SubmitMeta {
   extraCosts: Record<string, number>;
@@ -129,11 +130,6 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
     setErrors(prev => ({ ...prev, [`companion_${idx}_pres_${pf.id}`]: '' }));
   };
 
-  // Telefonformat: xxx-xxxxxxx (t.ex. 070-1234567). Mellanslag tillåts och ignoreras,
-  // så "070-123 45 67" (som platshållaren visar) godkänns också.
-  const isValidPhone = (value: string) => /^\d{3}-\d{7}$/.test(String(value).replace(/\s/g, ''));
-  const PHONE_ERROR = 'Ange telefonnummer i formatet xxx-xxxxxxx, t.ex. 070-1234567';
-
   const validate = () => {
     const newErrors: Record<string, string> = {};
 
@@ -184,6 +180,18 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
     return Object.keys(newErrors).length === 0;
   };
 
+  // Städar telefonnummer inför sparning så att admin och SMS-utskicket får ett
+  // konsekvent värde oavsett hur kunden skrev in det.
+  const withNormalizedPhones = (data: Record<string, unknown>): Record<string, unknown> => {
+    const result = { ...data };
+    fields.forEach(field => {
+      if (field.type === 'phone' && result[field.label]) {
+        result[field.label] = normalizePhone(result[field.label]);
+      }
+    });
+    return result;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate() || saving) return;
@@ -200,7 +208,11 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
     // annars betalar kunden för en bokning som aldrig nådde databasen.
     setSaving(true);
     try {
-      const result = await onSubmit(formData, companions.length > 0 ? companions : undefined, meta);
+      const result = await onSubmit(
+        withNormalizedPhones(formData),
+        companions.length > 0 ? companions.map(withNormalizedPhones) : undefined,
+        meta,
+      );
       if (result !== false) setSubmitted(true);
     } catch {
       // Sidan visar eget felmeddelande via toast.
@@ -335,7 +347,7 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
               className={error ? 'border-destructive' : ''}
             />
             {field.type === 'phone' && !error && (
-              <p className="text-xs text-muted-foreground">Format: xxx-xxxxxxx, t.ex. 070-1234567</p>
+              <p className="text-xs text-muted-foreground">{PHONE_HINT}</p>
             )}
           </>
         ) : field.type === 'textarea' ? (
