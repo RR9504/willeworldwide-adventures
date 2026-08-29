@@ -88,11 +88,11 @@ export function buildOrderConfirmationEmail(
   const sekExtra = extraCosts?.['SEK'] || 0;
   const discount = promoDiscount && promoDiscount > 0 ? promoDiscount : 0;
   const totalSek = Math.max(0, (totalPrice || 0) + sekExtra - discount);
-  const otherCurrencies = Object.entries(extraCosts || {}).filter(([k, v]) => k !== 'SEK' && v > 0);
+  const otherCurrencies = Object.entries(extraCosts || {}).filter(([k, v]) => k !== 'SEK' && v !== 0);
 
   let priceStr = `${totalSek.toLocaleString('sv-SE')} SEK`;
   if (otherCurrencies.length > 0) {
-    priceStr += otherCurrencies.map(([cur, amount]) => ` + ${amount.toLocaleString('sv-SE')} ${cur}`).join('');
+    priceStr += otherCurrencies.map(([cur, amount]) => ` ${formatCurrencyDelta(amount, cur)}`).join('');
   }
 
   let message = `Hej ${firstName}!\n\n`;
@@ -113,7 +113,8 @@ export function buildOrderConfirmationEmail(
     if (totalSek > deposit || otherCurrencies.length > 0 || hasTbd) {
       const parts: string[] = [];
       if (totalSek > deposit) parts.push(`${(totalSek - deposit).toLocaleString('sv-SE')} SEK`);
-      otherCurrencies.forEach(([cur, amount]) => parts.push(`${amount.toLocaleString('sv-SE')} ${cur}`));
+      // Bara belopp att betala listas som resterande — ett avdrag hör inte hemma där.
+      otherCurrencies.forEach(([cur, amount]) => { if (amount > 0) parts.push(`${amount.toLocaleString('sv-SE')} ${cur}`); });
       const remainingStr = parts.length > 0 ? `Resterande belopp (${parts.join(' + ')})` : '';
       const tbdStr = hasTbd ? `pris för ${tbdLabels.join(', ')}` : '';
       const combined = [remainingStr, tbdStr].filter(Boolean).join(' + ');
@@ -133,6 +134,76 @@ export function buildOrderConfirmationEmail(
     subject: isFullyPaid ? `Betalning mottagen — ${tripTitle}` : `Bokningsbekräftelse — ${tripTitle}`,
     message,
   };
+}
+
+// Tillägg/avdrag i annan valuta än SEK, med rätt tecken: "+ 500 EUR" / "− 500 EUR".
+export function formatCurrencyDelta(amount: number, currency: string): string {
+  return `${amount < 0 ? '−' : '+'} ${Math.abs(amount).toLocaleString('sv-SE')} ${currency}`;
+}
+
+// Priser skrivna direkt i alternativets text — "9-12 år … -1100 SEK", "Enkelrum (+1 900 kr)".
+// Sådan text är BARA text; slutpriset räknas på fältets prisruta (priceModifier). Vi känner
+// igen mönstret för att kunna varna i formulärbyggaren och erbjuda att flytta över beloppet.
+//
+// Bara belopp med uttryckligt + eller − tolkas. "Cavalletto (11 600 kr)" kan lika gärna vara
+// alternativets totalpris som ett tillägg — det ska vi inte gissa oss till.
+const SIGNED_PRICE_IN_LABEL = /([+−–—-])\s*(\d[\d\s]*?)\s*(kr|sek|eur|€)(?![a-zåäö0-9])/i;
+
+export function parseSignedPriceInLabel(
+  label: string,
+): { amount: number; currency: string; text: string } | null {
+  const match = SIGNED_PRICE_IN_LABEL.exec(label || '');
+  if (!match) return null;
+
+  const [text, sign, digits, unit] = match;
+  const amount = Number(digits.replace(/\s/g, ''));
+  if (!Number.isFinite(amount) || amount === 0) return null;
+
+  return {
+    amount: sign === '+' ? amount : -amount,
+    currency: /eur|€/i.test(unit) ? 'EUR' : 'SEK',
+    text,
+  };
+}
+
+/**
+ * Slug för ett nytt alternativ. Genereras BARA en gång, när alternativet saknar värde:
+ * värdet är nyckeln som sparade anmälningar pekar på, så skrivs det om när etiketten
+ * ändras tappar befintliga anmälningar både sitt val och sitt pristillägg.
+ */
+export const slugifyOptionValue = (label: string): string =>
+  label.toLowerCase().replace(/[^a-zåäö0-9]+/g, '-').replace(/-+$/, '');
+
+/**
+ * Skyddsnät inför sparning: alternativ utan värde får ett. Ett tomt värde går inte att
+ * välja (Radix Select vägrar rendera det) och kan uppstå om formuläret sparas med Enter
+ * direkt efter att etiketten skrivits, innan fältet hunnit lämnas.
+ */
+export function withOptionValues(
+  fields: import('@/types/trip').FormField[],
+): import('@/types/trip').FormField[] {
+  const fixOptions = <T extends { options?: import('@/types/trip').FormFieldOption[] }>(item: T): T =>
+    item.options?.some(o => !o.value)
+      ? { ...item, options: item.options.map(o => (o.value ? o : { ...o, value: slugifyOptionValue(o.label) })) }
+      : item;
+
+  return fields.map(field => {
+    const fixed = fixOptions(field);
+    return fixed.conditionalFields
+      ? { ...fixed, conditionalFields: fixed.conditionalFields.map(fixOptions) }
+      : fixed;
+  });
+}
+
+/** Etiketten utan det inbakade priset — "Enkelrum (+1 900 kr)" → "Enkelrum". */
+export function stripPriceFromLabel(label: string): string {
+  const parsed = parseSignedPriceInLabel(label);
+  if (!parsed) return label;
+  return label
+    .replace(parsed.text, '')
+    .replace(/\(\s*\)/g, '')   // tomma parenteser blir kvar när priset stod inuti dem
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 export function calcExtraCostsFromFormData(formFields: import('@/types/trip').FormField[], formData: Record<string, any>): Record<string, number> {
@@ -295,14 +366,14 @@ export function buildRegistrationEmail(params: RegistrationEmailParams): { subje
     promoCode, promoDiscount, formFields, formData, presentationFields, presentationData,
   } = params;
   const hasDeposit = deposit && deposit > 0;
-  const otherCurrencies = Object.entries(extraCosts || {}).filter(([k, v]) => k !== 'SEK' && v > 0);
+  const otherCurrencies = Object.entries(extraCosts || {}).filter(([k, v]) => k !== 'SEK' && v !== 0);
   const sekExtra = extraCosts?.['SEK'] || 0;
   const discount = promoDiscount && promoDiscount > 0 ? promoDiscount : 0;
   const totalSek = Math.max(0, (totalPrice || 0) + sekExtra - discount);
 
   let priceStr = `${totalSek.toLocaleString('sv-SE')} SEK`;
   if (otherCurrencies.length > 0) {
-    priceStr += otherCurrencies.map(([cur, amount]) => ` + ${amount.toLocaleString('sv-SE')} ${cur}`).join('');
+    priceStr += otherCurrencies.map(([cur, amount]) => ` ${formatCurrencyDelta(amount, cur)}`).join('');
   }
 
   const tbdSuffix = tbdLabels && tbdLabels.length > 0 ? ` (exklusive ${tbdLabels.join(', ')})` : '';
@@ -331,7 +402,8 @@ export function buildRegistrationEmail(params: RegistrationEmailParams): { subje
     if (totalSek > deposit || otherCurrencies.length > 0 || hasTbd) {
       const parts: string[] = [];
       if (totalSek > deposit) parts.push(`${(totalSek - deposit).toLocaleString('sv-SE')} SEK`);
-      otherCurrencies.forEach(([cur, amount]) => parts.push(`${amount.toLocaleString('sv-SE')} ${cur}`));
+      // Bara belopp att betala listas som resterande — ett avdrag hör inte hemma där.
+      otherCurrencies.forEach(([cur, amount]) => { if (amount > 0) parts.push(`${amount.toLocaleString('sv-SE')} ${cur}`); });
       const remainingStr = parts.length > 0 ? `Resterande belopp (${parts.join(' + ')})` : '';
       const tbdStr = hasTbd ? `pris för ${tbdLabels.join(', ')}` : '';
       const combined = [remainingStr, tbdStr].filter(Boolean).join(' + ');

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { callApi } from '@/lib/api';
+import { withOptionValues } from '@/lib/messaging';
 import { Trip, TripCategory, TripStatus, FormField, PresentationQuestion, TripDateRange, PromoCode, TripInfoFile } from '@/types/trip';
 
 // Re-export registration hooks so pages can import everything from useTrips
@@ -67,11 +68,15 @@ export function useTrip(id: string | undefined) {
   });
 }
 
+// Alla sparvägar går genom trips.save — se till att inga alternativ saknar värde på vägen ut.
+const withFixedOptionValues = (trip: Partial<Trip> & Record<string, unknown>): Record<string, unknown> =>
+  (trip.form_fields ? { ...trip, form_fields: withOptionValues(trip.form_fields) } : trip) as Record<string, unknown>;
+
 export function useCreateTrip() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (trip: Omit<Trip, 'id' | 'created_at' | 'updated_at'>) =>
-      mapTrip(await callApi('trips.save', trip as Record<string, unknown>)),
+      mapTrip(await callApi('trips.save', withFixedOptionValues(trip))),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trips'] }),
   });
 }
@@ -80,7 +85,7 @@ export function useUpdateTrip() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Trip> & { id: string }) =>
-      mapTrip(await callApi('trips.save', { id, ...updates })),
+      mapTrip(await callApi('trips.save', withFixedOptionValues({ id, ...updates }))),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['trips'] });
       queryClient.invalidateQueries({ queryKey: ['trips', data.id] });
@@ -93,7 +98,7 @@ export function useSaveTrip() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (trip: Partial<Trip> & { id?: string }) =>
-      mapTrip(await callApi('trips.save', trip as Record<string, unknown>)),
+      mapTrip(await callApi('trips.save', withFixedOptionValues(trip))),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trips'] }),
   });
 }

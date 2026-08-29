@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, CreditCard, Smartphone, AlertTriangle, UserPlus, X, Tag } from 'lucide-react';
-import { calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek } from '@/lib/messaging';
+import { calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek, formatCurrencyDelta } from '@/lib/messaging';
 import { isValidPhone, normalizePhone, PHONE_ERROR, PHONE_HINT } from '@/lib/phone';
 
 export interface SubmitMeta {
@@ -68,7 +68,9 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
   const perPersonSek = [mainModifiers, ...companionModifiersList].map(m => (tripPrice ?? 0) + (m['SEK'] || 0));
   const promoDiscount = appliedPromo ? perPersonSek.reduce((sum, sek) => sum + calcPromoDiscountSek(sek, appliedPromo), 0) : 0;
   const dynamicTotal = Math.max(0, grossSek - promoDiscount);
-  const hasModifiers = Object.values(allModifiers).some(v => v > 0);
+  // Även ett rent avdrag (t.ex. barnrabatt) ska visa prisrutan — annars ser kunden
+  // aldrig att rabatten dragits av.
+  const hasModifiers = Object.values(allModifiers).some(v => v !== 0);
 
   const applyPromo = () => {
     const match = findPromoCode(promoCodes, promoInput);
@@ -231,7 +233,7 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
       <span>
         {dynamicTotal.toLocaleString('sv-SE')} SEK
         {otherCurrencies.map(([cur, amount]) => (
-          <span key={cur}> + {amount.toLocaleString('sv-SE')} {cur}</span>
+          <span key={cur}> {formatCurrencyDelta(amount, cur)}</span>
         ))}
       </span>
     );
@@ -264,7 +266,8 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
               {(() => {
                 const parts: string[] = [];
                 if (remainingAfterDeposit != null && remainingAfterDeposit > 0) parts.push(`${remainingAfterDeposit.toLocaleString('sv-SE')} SEK`);
-                otherCurrencies.forEach(([cur, amount]) => parts.push(`${amount.toLocaleString('sv-SE')} ${cur}`));
+                // Bara belopp att betala listas här — ett avdrag är inget "resterande belopp".
+                otherCurrencies.forEach(([cur, amount]) => { if (amount > 0) parts.push(`${amount.toLocaleString('sv-SE')} ${cur}`); });
                 const remainingStr = parts.length > 0 ? `Resterande belopp (${parts.join(' + ')})` : '';
                 const tbdStr = tbdLabels.length > 0 ? `pris för ${tbdLabels.join(', ')}` : '';
                 const combined = [remainingStr, tbdStr].filter(Boolean).join(' + ');
@@ -538,7 +541,7 @@ const DynamicForm = ({ fields, presentationFields = [], onSubmit, isSubmitting, 
               <p className="font-heading text-xl font-bold">
                 {dynamicTotal.toLocaleString('sv-SE')} SEK
                 {otherCurrencies.map(([cur, amount]) => (
-                  <span key={cur}> + {amount.toLocaleString('sv-SE')} {cur}</span>
+                  <span key={cur}> {formatCurrencyDelta(amount, cur)}</span>
                 ))}
               </p>
             </>

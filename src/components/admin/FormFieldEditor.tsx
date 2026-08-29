@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trash2, Plus, GripVertical, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { Trash2, Plus, GripVertical, ChevronDown, ChevronRight, X, AlertTriangle } from 'lucide-react';
+import { parseSignedPriceInLabel, stripPriceFromLabel, slugifyOptionValue } from '@/lib/messaging';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -26,6 +27,28 @@ interface FormFieldEditorProps {
   onRemove: () => void;
   dragHandleProps?: Record<string, any>;
 }
+
+// Varning när priset står i alternativets text men prisrutan är tom — då räknas det
+// aldrig in i slutpriset. Ett klick flyttar över beloppet dit det faktiskt används.
+const PriceInLabelHint = ({ option, onApply }: { option: FormFieldOption; onApply: (amount: number, currency: string, label: string) => void }) => {
+  if (option.priceTbd || option.priceModifier !== undefined) return null;
+  const parsed = parseSignedPriceInLabel(option.label);
+  if (!parsed) return null;
+
+  return (
+    <div className="ml-6 flex flex-wrap items-center gap-2 rounded-md border border-yellow-400 bg-yellow-50 px-2 py-1.5 text-xs text-yellow-800">
+      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+      <span>Priset står bara i texten och räknas inte in i slutpriset.</span>
+      <button
+        type="button"
+        onClick={() => onApply(parsed.amount, parsed.currency, stripPriceFromLabel(option.label))}
+        className="rounded bg-yellow-800 px-2 py-0.5 font-medium text-yellow-50 hover:bg-yellow-900"
+      >
+        Använd {parsed.amount.toLocaleString('sv-SE')} {parsed.currency}
+      </button>
+    </div>
+  );
+};
 
 const SortableOption = ({ id, children }: { id: string; children: (handleProps: Record<string, any>) => React.ReactNode }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -223,17 +246,15 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                     {(field.options || []).map((opt, idx) => (
                       <SortableOption key={`opt-${idx}`} id={`opt-${idx}`}>
                         {(handleProps) => (
+                          <div className="space-y-1.5">
                           <div className="flex items-center gap-2">
                             <div {...handleProps} className="cursor-grab text-muted-foreground hover:text-foreground">
                               <GripVertical className="h-4 w-4" />
                             </div>
                             <Input
                               value={opt.label}
-                              onChange={e => {
-                                const label = e.target.value;
-                                const value = label.toLowerCase().replace(/[^a-zåäö0-9]+/g, '-').replace(/-+$/, '');
-                                updateOption(idx, { label, value });
-                              }}
+                              onChange={e => updateOption(idx, { label: e.target.value })}
+                              onBlur={e => { if (!opt.value) updateOption(idx, { value: slugifyOptionValue(e.target.value) }); }}
                               placeholder={`Alternativ ${idx + 1}`}
                               className="flex-1"
                             />
@@ -243,7 +264,7 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                               disabled={opt.priceTbd}
                               onChange={e => updateOption(idx, { priceModifier: e.target.value ? Number(e.target.value) : undefined })}
                               placeholder={opt.priceTbd ? 'senare' : '± pris'}
-                              className="w-20"
+                              className="w-24"
                             />
                             <Select value={opt.priceModifierCurrency || 'SEK'} onValueChange={v => updateOption(idx, { priceModifierCurrency: v })}>
                               <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
@@ -264,11 +285,20 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                               <X className="h-3 w-3" />
                             </Button>
                           </div>
+                          <PriceInLabelHint
+                            option={opt}
+                            onApply={(amount, currency, label) => updateOption(idx, { label, priceModifier: amount, priceModifierCurrency: currency })}
+                          />
+                          </div>
                         )}
                       </SortableOption>
                     ))}
                   </SortableContext>
                 </DndContext>
+                <p className="text-xs text-muted-foreground">
+                  Prisrutan styr slutpriset: <span className="font-medium">500</span> för tillägg,{' '}
+                  <span className="font-medium">-500</span> för rabatt. Pris som bara skrivs i alternativets text räknas inte in.
+                </p>
                 <Button type="button" variant="outline" size="sm" onClick={addOption} className="gap-1">
                   <Plus className="h-3 w-3" /> Lägg till alternativ
                 </Button>
@@ -353,14 +383,12 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                         <div className="space-y-2">
                           <Label className="text-xs">Alternativ</Label>
                           {(cf.options || []).map((opt, optIdx) => (
-                            <div key={optIdx} className="flex items-center gap-2">
+                            <div key={optIdx} className="space-y-1.5">
+                            <div className="flex items-center gap-2">
                               <Input
                                 value={opt.label}
-                                onChange={e => {
-                                  const label = e.target.value;
-                                  const value = label.toLowerCase().replace(/[^a-zåäö0-9]+/g, '-').replace(/-+$/, '');
-                                  updateConditionalOption(cfIdx, optIdx, { label, value });
-                                }}
+                                onChange={e => updateConditionalOption(cfIdx, optIdx, { label: e.target.value })}
+                                onBlur={e => { if (!opt.value) updateConditionalOption(cfIdx, optIdx, { value: slugifyOptionValue(e.target.value) }); }}
                                 placeholder={`Alternativ ${optIdx + 1}`}
                                 className="flex-1"
                               />
@@ -370,7 +398,7 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                                 disabled={opt.priceTbd}
                                 onChange={e => updateConditionalOption(cfIdx, optIdx, { priceModifier: e.target.value ? Number(e.target.value) : undefined })}
                                 placeholder={opt.priceTbd ? 'senare' : '± pris'}
-                                className="w-20"
+                                className="w-24"
                               />
                               <Select value={opt.priceModifierCurrency || 'SEK'} onValueChange={v => updateConditionalOption(cfIdx, optIdx, { priceModifierCurrency: v })}>
                                 <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
@@ -390,6 +418,11 @@ const FormFieldEditor = ({ field, onChange, onRemove, dragHandleProps }: FormFie
                               <Button type="button" variant="ghost" size="icon" onClick={() => removeConditionalOption(cfIdx, optIdx)} className="h-6 w-6 text-muted-foreground">
                                 <X className="h-3 w-3" />
                               </Button>
+                            </div>
+                            <PriceInLabelHint
+                              option={opt}
+                              onApply={(amount, currency, label) => updateConditionalOption(cfIdx, optIdx, { label, priceModifier: amount, priceModifierCurrency: currency })}
+                            />
                             </div>
                           ))}
                           <Button type="button" variant="outline" size="sm" onClick={() => addConditionalOption(cfIdx)} className="gap-1 text-xs">

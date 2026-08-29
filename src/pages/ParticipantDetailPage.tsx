@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { PaymentStatus, PromoCode } from '@/types/trip';
 import { EditableFormField } from '@/components/trips/EditableFormField';
 import { BookingDiscountEditor } from '@/components/trips/BookingDiscountEditor';
-import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek } from '@/lib/messaging';
+import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek, formatCurrencyDelta } from '@/lib/messaging';
 import { toast } from 'sonner';
 
 const paymentLabels: Record<PaymentStatus, string> = {
@@ -54,7 +54,7 @@ const ParticipantDetailPage = () => {
 
   // Slutpris = grundpris + prismodifierare från valda alternativ (t.ex. hotell) − ev. kampanjrabatt
   const extraCosts = calcExtraCostsFromFormData(trip.form_fields, reg.form_data);
-  const otherCurrencies = Object.entries(extraCosts).filter(([k, v]) => k !== 'SEK' && v > 0);
+  const otherCurrencies = Object.entries(extraCosts).filter(([k, v]) => k !== 'SEK' && v !== 0);
   const grossSek = trip.price + (extraCosts['SEK'] || 0);
   // Admin-satt rabatt (_promo_override) tar precedens över kundens egen kampanjkod.
   const promoOverride = reg.form_data['_promo_override'] as PromoCode | undefined;
@@ -63,7 +63,7 @@ const ParticipantDetailPage = () => {
   const totalSek = Math.max(0, grossSek - promoDiscount);
   const tbdLabels = collectTbdLabels(trip.form_fields, reg.form_data);
   const formatPrice = (sek: number) =>
-    [`${sek.toLocaleString('sv-SE')} ${trip.currency}`, ...otherCurrencies.map(([cur, amount]) => `${amount.toLocaleString('sv-SE')} ${cur}`)].join(' + ');
+    [`${sek.toLocaleString('sv-SE')} ${trip.currency}`, ...otherCurrencies.map(([cur, amount]) => formatCurrencyDelta(amount, cur))].join(' ');
 
 
   return (
