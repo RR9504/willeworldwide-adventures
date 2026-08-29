@@ -6,6 +6,7 @@ import {
   formatCurrencyDelta,
   buildOrderConfirmationEmail,
   withOptionValues,
+  findOptionForValue,
 } from '@/lib/messaging';
 import { FormField } from '@/types/trip';
 
@@ -96,6 +97,82 @@ describe('stripPriceFromLabel', () => {
   it('lämnar etiketter utan pris orörda', () => {
     expect(stripPriceFromLabel('Cavalletto (11 600 kr)')).toBe('Cavalletto (11 600 kr)');
     expect(stripPriceFromLabel('Dubbelrum')).toBe('Dubbelrum');
+  });
+});
+
+// Priset lagras aldrig på anmälan — det räknas om från resans nuvarande fält. Att fylla i
+// prisrutan i efterhand ska därför slå igenom på dem som redan anmält sig.
+describe('rättad prisruta slår igenom på redan anmälda', () => {
+  // Så här såg fältet ut när anmälan gjordes: priset i texten, prisrutan tom.
+  const sparadAnmalan = { Barnrabatt: '9-12-år-i-tre-eller-fyrbäddsrum-med-vuxen-1100-sek' };
+
+  it('rabatten räknas när prisrutan fylls i utan att etiketten rörs', () => {
+    const efter: FormField[] = [{
+      id: 'f', type: 'select', label: 'Barnrabatt', required: false,
+      options: [{
+        label: '9-12 år (I tre, eller fyrbäddsrum med vuxen) -1100 SEK',
+        value: '9-12-år-i-tre-eller-fyrbäddsrum-med-vuxen-1100-sek',
+        priceModifier: -1100, priceModifierCurrency: 'SEK',
+      }],
+    }];
+    expect(calcExtraCostsFromFormData(efter, sparadAnmalan)).toEqual({ SEK: -1100 });
+  });
+
+  it('rabatten räknas även när priset flyttats ut ur etiketten', () => {
+    // "Använd -1100 SEK" städar etiketten men behåller värdet — anmälan hittar hem.
+    const efter: FormField[] = [{
+      id: 'f', type: 'select', label: 'Barnrabatt', required: false,
+      options: [{
+        label: '9-12 år (I tre, eller fyrbäddsrum med vuxen)',
+        value: '9-12-år-i-tre-eller-fyrbäddsrum-med-vuxen-1100-sek',
+        priceModifier: -1100, priceModifierCurrency: 'SEK',
+      }],
+    }];
+    expect(calcExtraCostsFromFormData(efter, sparadAnmalan)).toEqual({ SEK: -1100 });
+  });
+
+  it('hittar hem även om värdet skrevs om när etiketten kortades', () => {
+    // Anmälningar gjorda innan värdet låstes pekar på den gamla, längre sluggen.
+    const efter: FormField[] = [{
+      id: 'f', type: 'select', label: 'Barnrabatt', required: false,
+      options: [{
+        label: '9-12 år (I tre, eller fyrbäddsrum med vuxen)',
+        value: '9-12-år-i-tre-eller-fyrbäddsrum-med-vuxen',
+        priceModifier: -1100, priceModifierCurrency: 'SEK',
+      }],
+    }];
+    expect(calcExtraCostsFromFormData(efter, sparadAnmalan)).toEqual({ SEK: -1100 });
+  });
+});
+
+describe('findOptionForValue', () => {
+  const options = [
+    { label: 'Enkelrum', value: 'enkelrum', priceModifier: 1900 },
+    { label: 'Dubbelrum', value: 'dubbelrum' },
+  ];
+
+  it('matchar på värde, etikett och slug', () => {
+    expect(findOptionForValue(options, 'enkelrum')?.label).toBe('Enkelrum');
+    expect(findOptionForValue(options, 'Dubbelrum')?.label).toBe('Dubbelrum');
+    expect(findOptionForValue([{ label: 'Val de Costa', value: 'vdc' }], 'val-de-costa')?.label).toBe('Val de Costa');
+  });
+
+  it('matchar bara bortkapat pris, inte bortkapade ord', () => {
+    const rum = [
+      { label: 'Enkelrum', value: 'enkelrum' },
+      { label: 'Enkelrum med balkong', value: 'enkelrum-med-balkong' },
+    ];
+    // "Enkelrum med utsikt" är ett eget alternativ — inte "Enkelrum" med något avklippt.
+    expect(findOptionForValue(rum, 'enkelrum-med-utsikt')).toBeUndefined();
+    // Men "enkelrum-1-900-kr" är just "Enkelrum" från när priset stod i etiketten.
+    expect(findOptionForValue(rum, 'enkelrum-1-900-kr')?.label).toBe('Enkelrum');
+  });
+
+  it('returnerar undefined för tomt och okänt', () => {
+    expect(findOptionForValue(options, '')).toBeUndefined();
+    expect(findOptionForValue(options, undefined)).toBeUndefined();
+    expect(findOptionForValue(options, 'trebäddsrum')).toBeUndefined();
+    expect(findOptionForValue(undefined, 'enkelrum')).toBeUndefined();
   });
 });
 

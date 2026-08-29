@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { PaymentStatus, PromoCode } from '@/types/trip';
 import { EditableFormField } from '@/components/trips/EditableFormField';
 import { BookingDiscountEditor } from '@/components/trips/BookingDiscountEditor';
-import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek, formatCurrencyDelta } from '@/lib/messaging';
+import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek, formatCurrencyDelta, findOptionForValue } from '@/lib/messaging';
 import { toast } from 'sonner';
 
 const paymentLabels: Record<PaymentStatus, string> = {
@@ -172,7 +172,7 @@ const ParticipantDetailPage = () => {
                   {trip.form_fields.map(field => {
                     const val = reg.form_data[field.label];
                     // Visa option-etikett istället för dess interna "value"
-                    const labelFromOption = field.type === 'select' ? field.options?.find(o => o.value === val)?.label : undefined;
+                    const labelFromOption = field.type === 'select' ? findOptionForValue(field.options, val)?.label : undefined;
                     const displayVal = val === true ? 'Ja' : val === false ? 'Nej' : (labelFromOption ?? val ?? '–');
                     return (
                       <div key={field.id} className="flex items-start justify-between gap-4">
@@ -187,7 +187,7 @@ const ParticipantDetailPage = () => {
                     .map(({ cf, parent }, idx) => {
                       const val = reg.form_data[cf.label];
                       if (!val) return null;
-                      const labelFromOption = cf.type === 'select' ? cf.options?.find(o => o.value === val)?.label : undefined;
+                      const labelFromOption = cf.type === 'select' ? findOptionForValue(cf.options, val)?.label : undefined;
                       return (
                         <div key={`cf-${parent.id}-${idx}`} className="flex items-start justify-between gap-4 pl-4 border-l-2 border-primary/20">
                           <span className="text-sm text-muted-foreground">{cf.label}</span>

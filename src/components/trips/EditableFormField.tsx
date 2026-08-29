@@ -4,6 +4,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { FormField, ConditionalField } from '@/types/trip';
+import { findOptionForValue } from '@/lib/messaging';
 
 interface Props {
   field: FormField | (ConditionalField & { id?: string });
@@ -20,8 +21,11 @@ export const EditableFormField = ({ field, data, onUpdate, showDescription }: Pr
   let control: React.ReactNode = null;
 
   if (field.type === 'select' && field.options) {
+    // Visa rätt alternativ som valt även när svaret sparades mot ett äldre värde —
+    // annars ser rutan tom ut och en sparning skulle radera valet.
+    const selected = findOptionForValue(field.options, v);
     control = (
-      <Select value={typeof v === 'string' ? v : ''} onValueChange={value => onUpdate(field.label, value)}>
+      <Select value={selected?.value ?? ''} onValueChange={value => onUpdate(field.label, value)}>
         <SelectTrigger><SelectValue placeholder="Välj…" /></SelectTrigger>
         <SelectContent>
           {field.options.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}

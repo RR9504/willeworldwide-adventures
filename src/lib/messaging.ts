@@ -175,6 +175,45 @@ export const slugifyOptionValue = (label: string): string =>
   label.toLowerCase().replace(/[^a-zåäö0-9]+/g, '-').replace(/-+$/, '');
 
 /**
+ * Hittar alternativet som en sparad anmälan pekar på.
+ *
+ * Priset på en anmälan lagras aldrig — det räknas om från resans nuvarande fält varje
+ * gång det visas. Det gör att en rättad prisruta slår igenom även på redan anmälda,
+ * men bara så länge anmälans sparade svar fortfarande hittar sitt alternativ.
+ *
+ * Äldre anmälningar kan peka på något annat än dagens värde:
+ *  - etiketten själv (så sparade formuläret förr)
+ *  - en slug som genererades från en etikett som sedan ändrats — t.ex.
+ *    "…-med-vuxen-1100-sek" när priset flyttats ut ur etiketten
+ *
+ * Utan de här fallbacken tappar sådana anmälningar tyst både sitt val och sitt pris.
+ * Prefixmatchningen används bara när exakt ett alternativ kan mena svaret.
+ */
+export function findOptionForValue(
+  options: import('@/types/trip').FormFieldOption[] | undefined,
+  stored: unknown,
+): import('@/types/trip').FormFieldOption | undefined {
+  if (!options?.length || stored === undefined || stored === null || stored === '') return undefined;
+  const value = String(stored);
+
+  const exact = options.find(o => o.value === value)
+    ?? options.find(o => o.label === value)
+    ?? options.find(o => slugifyOptionValue(o.label) === value);
+  if (exact) return exact;
+
+  // Etiketten har kortats för att priset flyttats till prisrutan: svaret är den nya
+  // sluggen plus det gamla prisets text ("…-med-vuxen" + "-1100-sek"). Resten måste se
+  // ut som ett pris — annars är det ett riktigt ord och alternativen är olika saker
+  // ("enkelrum-med-utsikt" är inte "Enkelrum").
+  const looksLikePrice = (rest: string) => /^\d[\d-]*(-(kr|sek|eur))?$/.test(rest);
+  const shortened = options.filter(o => {
+    const slug = slugifyOptionValue(o.label);
+    return slug.length > 0 && value.startsWith(`${slug}-`) && looksLikePrice(value.slice(slug.length + 1));
+  });
+  return shortened.length === 1 ? shortened[0] : undefined;
+}
+
+/**
  * Skyddsnät inför sparning: alternativ utan värde får ett. Ett tomt värde går inte att
  * välja (Radix Select vägrar rendera det) och kan uppstå om formuläret sparas med Enter
  * direkt efter att etiketten skrivits, innan fältet hunnit lämnas.
@@ -214,7 +253,7 @@ export function calcExtraCostsFromFormData(formFields: import('@/types/trip').Fo
       totals[cur] = (totals[cur] || 0) + field.priceModifier;
     }
     if (field.type === 'select' && field.options && formData[field.label]) {
-      const selected = field.options.find(o => o.value === formData[field.label]);
+      const selected = findOptionForValue(field.options, formData[field.label]);
       if (selected?.priceModifier && !selected.priceTbd) {
         const cur = selected.priceModifierCurrency || 'SEK';
         totals[cur] = (totals[cur] || 0) + selected.priceModifier;
@@ -223,7 +262,7 @@ export function calcExtraCostsFromFormData(formFields: import('@/types/trip').Fo
     if (formData[field.label] && field.conditionalFields) {
       field.conditionalFields.forEach(cf => {
         if (cf.options && formData[cf.label]) {
-          const selected = cf.options.find(o => o.value === formData[cf.label]);
+          const selected = findOptionForValue(cf.options, formData[cf.label]);
           if (selected?.priceModifier && !selected.priceTbd) {
             const cur = selected.priceModifierCurrency || 'SEK';
             totals[cur] = (totals[cur] || 0) + selected.priceModifier;
@@ -243,13 +282,13 @@ export function collectTbdLabels(formFields: import('@/types/trip').FormField[],
       labels.push(field.label);
     }
     if (field.type === 'select' && field.options && formData[field.label]) {
-      const selected = field.options.find(o => o.value === formData[field.label]);
+      const selected = findOptionForValue(field.options, formData[field.label]);
       if (selected?.priceTbd) labels.push(field.label);
     }
     if (formData[field.label] && field.conditionalFields) {
       field.conditionalFields.forEach(cf => {
         if (cf.options && formData[cf.label]) {
-          const selected = cf.options.find(o => o.value === formData[cf.label]);
+          const selected = findOptionForValue(cf.options, formData[cf.label]);
           if (selected?.priceTbd) labels.push(cf.label);
         }
       });
@@ -274,11 +313,11 @@ export function formatAnswersForEmail(
       field.conditionalFields?.forEach(cf => {
         const cfVal = formData[cf.label];
         if (cfVal === undefined || cfVal === '' || cfVal === null) return;
-        const displayVal = cf.options?.find(o => o.value === cfVal)?.label ?? String(cfVal);
+        const displayVal = findOptionForValue(cf.options, cfVal)?.label ?? String(cfVal);
         lines.push(`    – ${cf.label}: ${displayVal}`);
       });
     } else if (field.type === 'select') {
-      const displayVal = field.options?.find(o => o.value === val)?.label ?? String(val);
+      const displayVal = findOptionForValue(field.options, val)?.label ?? String(val);
       lines.push(`• ${field.label}: ${displayVal}`);
     } else {
       lines.push(`• ${field.label}: ${val}`);
