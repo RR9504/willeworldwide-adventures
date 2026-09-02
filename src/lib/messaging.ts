@@ -1,4 +1,8 @@
-// Edge functions hosted on separate Supabase project
+// Mejl/SMS (send-message) och AI-sammanfattning (ai-summary) ligger på ETT ANNAT
+// Supabase-projekt än data-api — konto robin.ruuska@live.se, gratisplan. Projektet
+// pausas efter ~7 dagars inaktivitet och då slutar all mejl- och SMS-utskick att
+// fungera, tyst, eftersom anmälningsmejlen skickas fire-and-forget.
+// .github/workflows/keepalive.yml pingar projektet för att hålla det vaket.
 const EDGE_FUNCTIONS_URL = 'https://seprpsyzqmppsnmzptyo.supabase.co';
 
 export interface SummaryAnswer {

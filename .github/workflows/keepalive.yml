@@ -1,0 +1,63 @@
+# Håller mejl/SMS-projektet på Supabase vaket.
+#
+# send-message och ai-summary ligger på ett eget Supabase-projekt
+# (seprpsyzqmppsnmzptyo, konto robin.ruuska@live.se) på gratisplanen, som pausar
+# projekt efter ~7 dagars inaktivitet. Mejlutskick är gles trafik — går det en vecka
+# mellan anmälningarna somnar projektet, och då slutar ALLA mejl och SMS att gå fram
+# utan att någon märker det (anmälningsmejlen skickas fire-and-forget).
+#
+# Jobbet failar med flit om projektet inte svarar, så GitHub mejlar dig i stället för
+# att felet upptäcks av en kund som aldrig fick sin bokningsbekräftelse.
+#
+# OBS: GitHub stänger av schemalagda workflows i repon utan aktivitet på 60 dagar.
+# Kör "Run workflow" manuellt eller pusha något om det varit tyst länge.
+
+name: Håll Supabase vaket
+
+on:
+  schedule:
+    # Dagligen 06:17 UTC. Schemalagda körningar kan bli försenade vid hög last hos
+    # GitHub, så vi kör varje dag i stället för varannan — marginalen till 7 dagar
+    # ska tåla att någon körning hoppas över.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT: https://seprpsyzqmppsnmzptyo.supabase.co
+      # Lägg anon-nyckeln för mejl/SMS-projektet i repots secrets som
+      # MAIL_PROJECT_ANON_KEY. Utan den hoppas databaspingen över.
+      ANON_KEY: ${{ secrets.MAIL_PROJECT_ANON_KEY }}
+
+    steps:
+      - name: Ping edge function (send-message)
+        run: |
+          # OPTIONS är CORS-preflighten — den svarar "ok" utan att skicka något mejl.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 -X OPTIONS \
+            "$PROJECT/functions/v1/send-message")
+          echo "OPTIONS /functions/v1/send-message -> $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::Mejl/SMS-projektet svarar inte ($code). Troligen pausat — väck det på supabase.com (konto robin.ruuska@live.se)."
+            exit 1
+          fi
+
+      - name: Ping databasen
+        if: env.ANON_KEY != ''
+        run: |
+          # Edge-anropet ensamt räknas inte säkert som projektaktivitet. Ett
+          # PostgREST-anrop går mot databasen och gör det.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 \
+            -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY" \
+            "$PROJECT/rest/v1/")
+          echo "GET /rest/v1/ -> $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::Databasen i mejl/SMS-projektet svarar inte ($code)."
+            exit 1
+          fi
+
+      - name: Påminn om databaspingen saknas
+        if: env.ANON_KEY == ''
+        run: |
+          echo "::warning::MAIL_PROJECT_ANON_KEY saknas i repots secrets — bara edge-funktionen pingas, vilket inte säkert räknas som projektaktivitet."
