@@ -46,16 +46,22 @@ jobs:
       - name: Ping databasen
         if: env.ANON_KEY != ''
         run: |
-          # Edge-anropet ensamt räknas inte säkert som projektaktivitet. Ett
-          # PostgREST-anrop går mot databasen och gör det.
+          # Edge-anropet ensamt räknas inte säkert som projektaktivitet. En läsning
+          # via PostgREST går mot databasen och gör det.
+          #
+          # Läser tabellen public.keepalive — skapa den med supabase/keepalive.sql.
+          # /rest/v1/ (OpenAPI-roten) duger inte: den är service_role-only, och en
+          # service_role-nyckel ska inte ligga i GitHub.
           code=$(curl -s -o /dev/null -w '%{http_code}' -m 30 \
             -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY" \
-            "$PROJECT/rest/v1/")
-          echo "GET /rest/v1/ -> $code"
-          if [ "$code" != "200" ]; then
-            echo "::error::Databasen i mejl/SMS-projektet svarar inte ($code)."
-            exit 1
-          fi
+            "$PROJECT/rest/v1/keepalive?select=id&limit=1")
+          echo "GET /rest/v1/keepalive -> $code"
+          case "$code" in
+            200) ;;
+            404) echo "::error::Tabellen public.keepalive saknas. Kör supabase/keepalive.sql i SQL-editorn på projektet."; exit 1 ;;
+            401) echo "::error::Nyckeln avvisades (401). Kontrollera att MAIL_PROJECT_ANON_KEY är anon-nyckeln för projekt seprpsyzqmppsnmzptyo."; exit 1 ;;
+            *)   echo "::error::Databasen svarar inte ($code). Projektet kan vara pausat."; exit 1 ;;
+          esac
 
       - name: Påminn om databaspingen saknas
         if: env.ANON_KEY == ''
