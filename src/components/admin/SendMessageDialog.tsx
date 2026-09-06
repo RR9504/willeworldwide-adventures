@@ -1,12 +1,12 @@
-import { useState, useRef } from 'react';
-import { Send, Mail, MessageSquare, Loader2, Paperclip, X } from 'lucide-react';
+import { useState } from 'react';
+import { Send, Mail, MessageSquare, Loader2, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Registration } from '@/types/trip';
-import { sendMessage } from '@/lib/messaging';
+import { sendMessage, summarizeSendErrors } from '@/lib/messaging';
 import { toast } from 'sonner';
 
 type Channel = 'email' | 'sms' | 'both';
@@ -16,23 +16,40 @@ interface SendMessageDialogProps {
   filterLabel?: string;
   filterValue?: string;
   tripTitle: string;
+  /** Egen knapp — används för enskild resenär, där "Skicka meddelande (1)" läser konstigt. */
+  trigger?: React.ReactNode;
 }
 
-const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle }: SendMessageDialogProps) => {
+const fullName = (r: Registration) =>
+  `${r.form_data['Förnamn'] || ''} ${r.form_data['Efternamn'] || ''}`.trim();
+
+const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle, trigger }: SendMessageDialogProps) => {
   const [open, setOpen] = useState(false);
   const [channel, setChannel] = useState<Channel>('email');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const recipientNames = recipients.map(r =>
-    `${r.form_data['Förnamn'] || ''} ${r.form_data['Efternamn'] || ''}`.trim()
-  ).filter(Boolean);
-
+  const isSingle = recipients.length === 1;
+  const recipientNames = recipients.map(fullName).filter(Boolean);
   const emails = recipients.map(r => r.form_data['E-post']).filter(Boolean);
   const phones = recipients.map(r => r.form_data['Telefon']).filter(Boolean);
+  const hasEmail = emails.length > 0;
+  const hasPhone = phones.length > 0;
+
+  // Mottagare som inte går att nå på den valda kanalen — säg det före utskicket
+  // i stället för att tyst hoppa över dem (edge-funktionen skickar bara till den
+  // som faktiskt har adress respektive nummer).
+  const unreachable =
+    channel === 'email' ? recipients.length - emails.length
+      : channel === 'sms' ? recipients.length - phones.length
+      : recipients.filter(r => !r.form_data['E-post'] && !r.form_data['Telefon']).length;
+
+  // Öppna på en kanal som faktiskt går att använda.
+  const handleOpenChange = (next: boolean) => {
+    if (next) setChannel(hasEmail ? 'email' : hasPhone ? 'sms' : 'email');
+    setOpen(next);
+  };
 
   const handleSend = async () => {
     if (!message.trim()) {
@@ -43,16 +60,19 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle }: 
       toast.error('Ange ett ämne för e-post');
       return;
     }
+    if (unreachable === recipients.length) {
+      toast.error('Ingen av mottagarna går att nå på den valda kanalen');
+      return;
+    }
 
     setSending(true);
-
     try {
       const result = await sendMessage({
         channel,
         subject,
         message,
         recipients: recipients.map(r => ({
-          name: `${r.form_data['Förnamn'] || ''} ${r.form_data['Efternamn'] || ''}`.trim(),
+          name: fullName(r),
           email: r.form_data['E-post'] || undefined,
           phone: r.form_data['Telefon'] || undefined,
         })),
@@ -60,13 +80,18 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle }: 
 
       if (result.success) {
         const channelLabel = channel === 'email' ? 'E-post' : channel === 'sms' ? 'SMS' : 'E-post + SMS';
-        toast.success(`${channelLabel} skickat till ${recipients.length} mottagare`);
+        toast.success(
+          isSingle
+            ? `${channelLabel} skickat till ${recipientNames[0] || 'mottagaren'}`
+            : `${channelLabel} skickat till ${recipients.length} mottagare`,
+        );
         setOpen(false);
         setMessage('');
         setSubject('');
-        setFiles([]);
       } else {
-        toast.error(result.error || 'Kunde inte skicka meddelandet');
+        // Vid delvis lyckat utskick står det i results vilka som inte nåddes.
+        const detail = summarizeSendErrors(result.results);
+        toast.error(detail ? `Kunde inte skicka till: ${detail}` : (result.error || 'Kunde inte skicka meddelandet'));
       }
     } catch {
       toast.error('Något gick fel vid skickandet');
@@ -79,74 +104,89 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle }: 
     ? `${filterValue === 'true' ? 'Ja' : filterValue === 'false' ? 'Nej' : filterValue} (${filterLabel})`
     : 'Alla deltagare';
 
+  const channelButton = (value: Channel, icon: React.ReactNode, label: string, enabled: boolean) => (
+    <Button
+      type="button"
+      variant={channel === value ? 'default' : 'outline'}
+      size="sm"
+      className="gap-1.5"
+      disabled={!enabled}
+      title={enabled ? undefined : 'Kontaktuppgift saknas'}
+      onClick={() => setChannel(value)}
+    >
+      {icon} {label}
+    </Button>
+  );
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-2">
-          <Send className="h-4 w-4" /> Skicka meddelande ({recipients.length})
-        </Button>
+        {trigger ?? (
+          <Button size="sm" className="gap-2">
+            <Send className="h-4 w-4" /> Skicka meddelande ({recipients.length})
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-heading">Skicka meddelande</DialogTitle>
+          <DialogTitle className="font-heading">
+            {isSingle ? `Meddelande till ${recipientNames[0] || 'resenär'}` : 'Skicka meddelande'}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Recipients summary */}
+          {/* Mottagare */}
           <div className="rounded-lg bg-muted p-3">
-            <p className="text-sm font-medium">Mottagare</p>
-            <p className="text-sm text-muted-foreground">
-              {recipients.length} deltagare — {filterDescription}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">{tripTitle}</p>
-            {recipientNames.length <= 8 ? (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {recipientNames.map((name, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs">{name}</Badge>
-                ))}
-              </div>
+            {isSingle ? (
+              <>
+                <p className="text-sm font-medium">{recipientNames[0] || 'Resenär'}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {emails[0] || <span className="italic">ingen e-post</span>}
+                  {' · '}
+                  {phones[0] || <span className="italic">inget telefonnummer</span>}
+                </p>
+              </>
             ) : (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {recipientNames.slice(0, 5).join(', ')} och {recipientNames.length - 5} till...
+              <>
+                <p className="text-sm font-medium">Mottagare</p>
+                <p className="text-sm text-muted-foreground">
+                  {recipients.length} deltagare — {filterDescription}
+                </p>
+                {recipientNames.length <= 8 ? (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {recipientNames.map((name, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs">{name}</Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {recipientNames.slice(0, 5).join(', ')} och {recipientNames.length - 5} till...
+                  </p>
+                )}
+              </>
+            )}
+            <p className="mt-1 text-xs text-muted-foreground">{tripTitle}</p>
+          </div>
+
+          {/* Kanal */}
+          <div className="space-y-1.5">
+            <Label className="text-sm">Kanal</Label>
+            <div className="flex gap-2">
+              {channelButton('email', <Mail className="h-3.5 w-3.5" />, isSingle ? 'E-post' : `E-post (${emails.length})`, hasEmail)}
+              {channelButton('sms', <MessageSquare className="h-3.5 w-3.5" />, isSingle ? 'SMS' : `SMS (${phones.length})`, hasPhone)}
+              {channelButton('both', null, 'Båda', hasEmail && hasPhone)}
+            </div>
+            {unreachable > 0 && (
+              <p className="flex items-start gap-1.5 text-xs text-yellow-700">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {isSingle
+                  ? 'Resenären saknar kontaktuppgift för den valda kanalen.'
+                  : `${unreachable} av ${recipients.length} saknar kontaktuppgift för den valda kanalen och hoppas över.`}
               </p>
             )}
           </div>
 
-          {/* Channel selector */}
-          <div className="space-y-1.5">
-            <Label className="text-sm">Kanal</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={channel === 'email' ? 'default' : 'outline'}
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setChannel('email')}
-              >
-                <Mail className="h-3.5 w-3.5" /> E-post ({emails.length})
-              </Button>
-              <Button
-                type="button"
-                variant={channel === 'sms' ? 'default' : 'outline'}
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setChannel('sms')}
-              >
-                <MessageSquare className="h-3.5 w-3.5" /> SMS ({phones.length})
-              </Button>
-              <Button
-                type="button"
-                variant={channel === 'both' ? 'default' : 'outline'}
-                size="sm"
-                className="gap-1.5"
-                onClick={() => setChannel('both')}
-              >
-                Båda
-              </Button>
-            </div>
-          </div>
-
-          {/* Subject (email only) */}
+          {/* Ämne (bara e-post) */}
           {(channel === 'email' || channel === 'both') && (
             <div className="space-y-1.5">
               <Label className="text-sm">Ämne</Label>
@@ -160,13 +200,13 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle }: 
             </div>
           )}
 
-          {/* Message */}
+          {/* Meddelande */}
           <div className="space-y-1.5">
             <Label className="text-sm">Meddelande</Label>
             <Textarea
               value={message}
               onChange={e => setMessage(e.target.value)}
-              placeholder="Skriv ditt meddelande här..."
+              placeholder={isSingle ? `Hej ${recipientNames[0]?.split(' ')[0] || ''}...` : 'Skriv ditt meddelande här...'}
               rows={5}
             />
             <p className="text-xs text-muted-foreground">
@@ -174,43 +214,11 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle }: 
             </p>
           </div>
 
-          {/* File attachments */}
-          {(channel === 'email' || channel === 'both') && (
-            <div className="space-y-2">
-              <Label className="text-sm">Bifoga filer</Label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={e => {
-                  if (e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
-                }}
-              />
-              <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()}>
-                <Paperclip className="h-3.5 w-3.5" /> Välj fil
-              </Button>
-              {files.length > 0 && (
-                <div className="space-y-1">
-                  {files.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between rounded bg-muted px-2 py-1 text-sm">
-                      <span className="truncate">{f.name} <span className="text-muted-foreground">({(f.size / 1024).toFixed(0)} KB)</span></span>
-                      <button onClick={() => setFiles(prev => prev.filter((_, j) => j !== i))} className="ml-2 text-muted-foreground hover:text-destructive">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Send button */}
           <Button onClick={handleSend} disabled={sending} className="w-full gap-2">
             {sending ? (
               <><Loader2 className="h-4 w-4 animate-spin" /> Skickar...</>
             ) : (
-              <><Send className="h-4 w-4" /> Skicka till {recipients.length} mottagare</>
+              <><Send className="h-4 w-4" /> {isSingle ? 'Skicka' : `Skicka till ${recipients.length} mottagare`}</>
             )}
           </Button>
         </div>

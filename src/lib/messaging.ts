@@ -53,7 +53,32 @@ interface SendMessageParams {
   message: string;
 }
 
-export async function sendMessage(params: SendMessageParams): Promise<{ success: boolean; error?: string }> {
+/** Utfall per mottagare från send-message. */
+export interface SendResult {
+  recipient: string;
+  sms?: boolean;
+  email?: boolean;
+  errors: string[];
+}
+
+/**
+ * Läsbar sammanfattning av vilka mottagare som fallerade.
+ *
+ * Funktionen svarar 207 när bara vissa gick igenom, och då finns felen per
+ * mottagare i results. Utan det här blir felmeddelandet bara "HTTP 207" och
+ * avsändaren får ingen aning om vem som inte nåddes.
+ */
+export function summarizeSendErrors(results: SendResult[] | undefined): string {
+  const failed = (results || []).filter(r => r.errors.length > 0);
+  if (failed.length === 0) return '';
+  const shown = failed.slice(0, 3).map(r => `${r.recipient} (${r.errors.join('; ')})`);
+  const rest = failed.length - shown.length;
+  return shown.join(', ') + (rest > 0 ? ` och ${rest} till` : '');
+}
+
+export async function sendMessage(
+  params: SendMessageParams,
+): Promise<{ success: boolean; error?: string; results?: SendResult[] }> {
   try {
     const res = await fetch(`${EDGE_FUNCTIONS_URL}/functions/v1/send-message`, {
       method: 'POST',
@@ -61,7 +86,7 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
       body: JSON.stringify(params),
     });
 
-    let data: { success?: boolean; error?: string } = {};
+    let data: { success?: boolean; error?: string; results?: SendResult[] } = {};
     try {
       data = await res.json();
     } catch {
@@ -69,9 +94,15 @@ export async function sendMessage(params: SendMessageParams): Promise<{ success:
     }
 
     if (!res.ok || data.success === false) {
-      return { success: false, error: data.error || `HTTP ${res.status}` };
+      // 207 = delvis lyckat. Statuskoden är 2xx, så res.ok räcker inte som kontroll.
+      const detail = summarizeSendErrors(data.results);
+      return {
+        success: false,
+        error: data.error || detail || `HTTP ${res.status}`,
+        results: data.results,
+      };
     }
-    return { success: true };
+    return { success: true, results: data.results };
   } catch (err) {
     // Nätverksfel, DNS-fel (Supabase-projekt pausat), CORS — returnera tydligt fel istället för att kasta vidare.
     const msg = err instanceof Error ? err.message : String(err);

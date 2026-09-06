@@ -7,6 +7,7 @@ import {
   buildOrderConfirmationEmail,
   withOptionValues,
   findOptionForValue,
+  summarizeSendErrors,
 } from '@/lib/messaging';
 import { FormField } from '@/types/trip';
 
@@ -199,6 +200,26 @@ describe('withOptionValues', () => {
       conditionalFields: [{ type: 'select', label: 'Storlek', options: [{ label: 'Small', value: '' }] }],
     }];
     expect(withOptionValues(fields)[0].conditionalFields?.[0].options?.[0].value).toBe('small');
+  });
+});
+
+describe('summarizeSendErrors', () => {
+  it('namnger vilka mottagare som inte nåddes', () => {
+    expect(summarizeSendErrors([
+      { recipient: 'Lova Jonsén', errors: ['SMS: ogiltigt nummer'] },
+      { recipient: 'Emma Jonsén', errors: [], email: true },
+    ])).toBe('Lova Jonsén (SMS: ogiltigt nummer)');
+  });
+
+  it('kortar ner långa listor', () => {
+    const many = ['A', 'B', 'C', 'D', 'E'].map(n => ({ recipient: n, errors: ['fel'] }));
+    expect(summarizeSendErrors(many)).toBe('A (fel), B (fel), C (fel) och 2 till');
+  });
+
+  it('ger tom sträng när allt gick bra', () => {
+    expect(summarizeSendErrors([{ recipient: 'A', errors: [], email: true }])).toBe('');
+    expect(summarizeSendErrors([])).toBe('');
+    expect(summarizeSendErrors(undefined)).toBe('');
   });
 });
 

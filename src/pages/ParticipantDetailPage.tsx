@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { PaymentStatus, PromoCode } from '@/types/trip';
 import { EditableFormField } from '@/components/trips/EditableFormField';
 import { BookingDiscountEditor } from '@/components/trips/BookingDiscountEditor';
+import SendMessageDialog from '@/components/admin/SendMessageDialog';
 import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek, formatCurrencyDelta, findOptionForValue } from '@/lib/messaging';
 import { toast } from 'sonner';
 
@@ -119,6 +120,15 @@ const ParticipantDetailPage = () => {
               <CardTitle className="flex items-center gap-2 text-lg"><User className="h-5 w-5 text-primary" /> Bokningsinformation</CardTitle>
               {!editingBooking ? (
                 <div className="flex flex-wrap gap-1.5">
+                  <SendMessageDialog
+                    recipients={[reg]}
+                    tripTitle={trip.title}
+                    trigger={
+                      <Button variant="ghost" size="sm" className="gap-1.5" title="Mejla eller smsa just den här resenären">
+                        <Send className="h-3.5 w-3.5" /> Meddelande
+                      </Button>
+                    }
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
