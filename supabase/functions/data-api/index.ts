@@ -15,9 +15,33 @@ const sql = neon(Deno.env.get("DATABASE_URL")!);
 
 // Idempotent schemauppdatering vid kallstart — Neon nås bara härifrån,
 // så nya kolumner läggs till här i stället för via separata migrationssteg.
-const schemaReady = sql`ALTER TABLE trips ADD COLUMN IF NOT EXISTS info_files jsonb`.catch(
-  (e) => console.error("schema migration failed", e),
-);
+const schemaReady = (async () => {
+  await sql`ALTER TABLE trips ADD COLUMN IF NOT EXISTS info_files jsonb`;
+  // Utskickslogg: en rad per mottagare och försök. Mejl/SMS går via ett annat
+  // Supabase-projekt (gratisplan, pausas vid inaktivitet) och sparades tidigare
+  // ingenstans — ett misslyckat utskick försvann spårlöst. Nu syns det här och
+  // kan skickas om från portalen. Inga främmande nycklar: loggen ska överleva
+  // att en anmälan eller resa raderas.
+  await sql`CREATE TABLE IF NOT EXISTS message_log (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    kind text NOT NULL,
+    channel text NOT NULL,
+    trip_id uuid,
+    registration_id uuid,
+    recipient_name text NOT NULL DEFAULT '',
+    recipient_email text,
+    recipient_phone text,
+    subject text,
+    message text NOT NULL,
+    status text NOT NULL,
+    email_ok boolean,
+    sms_ok boolean,
+    error text,
+    resent_from uuid
+  )`;
+  await sql`CREATE INDEX IF NOT EXISTS message_log_created_at_idx ON message_log (created_at DESC)`;
+})().catch((e) => console.error("schema migration failed", e));
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -53,6 +77,133 @@ async function requireAdmin(req: Request): Promise<{ ok: true } | { ok: false; r
   return { ok: true };
 }
 
+// ---------- MEJL/SMS via mejl/SMS-projektet ----------
+// send-message ligger på ett ANNAT Supabase-projekt (seprpsyzqmppsnmzptyo, konto
+// robin.ruuska@live.se, gratisplan). Se src/lib/messaging.ts och .github/workflows/keepalive.yml.
+const MAIL_PROJECT_URL = "https://seprpsyzqmppsnmzptyo.supabase.co";
+const SEND_TIMEOUT_MS = 120_000;
+const MAX_RECIPIENTS = 500;
+
+type Channel = "email" | "sms" | "both";
+type MessageKind = "admin" | "registration" | "order_confirmation";
+type MessageStatus = "sent" | "failed" | "partial";
+
+interface OutgoingRecipient {
+  name: string;
+  email?: string;
+  phone?: string;
+  registration_id?: string;
+}
+
+/** Utfall per mottagare så som send-message rapporterar det. */
+interface SendResult {
+  recipient: string;
+  sms?: boolean;
+  email?: boolean;
+  errors: string[];
+}
+
+const CHANNELS: Channel[] = ["email", "sms", "both"];
+const KINDS: MessageKind[] = ["admin", "registration", "order_confirmation"];
+
+/**
+ * Status för en loggrad utifrån vad send-message svarade för den mottagaren.
+ * sms/email är undefined när kanalen inte ens försöktes (kontaktuppgift saknas).
+ */
+function statusFromResult(r: SendResult | undefined): { status: MessageStatus; error: string | null } {
+  if (!r) return { status: "failed", error: "Inget svar för mottagaren från mejl/SMS-tjänsten" };
+  const attempted = r.sms !== undefined || r.email !== undefined;
+  if (!attempted) return { status: "failed", error: "Kontaktuppgift saknas för den valda kanalen" };
+  if (r.errors.length === 0) return { status: "sent", error: null };
+  const anyOk = r.sms === true || r.email === true;
+  return { status: anyOk ? "partial" : "failed", error: r.errors.join("; ") };
+}
+
+/**
+ * Skickar via send-message och loggar en rad per mottagare — även när tjänsten
+ * inte går att nå alls. Det är hela poängen: ett utskick som aldrig kom fram
+ * ska synas i portalen och gå att skicka om.
+ */
+async function deliverAndLog(opts: {
+  kind: MessageKind;
+  channel: Channel;
+  trip_id: string | null;
+  subject: string | null;
+  message: string;
+  recipients: OutgoingRecipient[];
+  resent_from?: string | null;
+}): Promise<{ success: boolean; error?: string; results: SendResult[]; log_ids: string[] }> {
+  const { kind, channel, trip_id, subject, message, recipients, resent_from = null } = opts;
+
+  let results: SendResult[] = [];
+  let transportError: string | null = null;
+  try {
+    const res = await fetch(`${MAIL_PROJECT_URL}/functions/v1/send-message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        channel,
+        subject: subject ?? undefined,
+        message,
+        recipients: recipients.map((r) => ({ name: r.name, email: r.email, phone: r.phone })),
+      }),
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+    });
+    let data: { success?: boolean; error?: string; results?: SendResult[] } = {};
+    try {
+      data = await res.json();
+    } catch {
+      transportError = `Oväntat svar från mejl/SMS-tjänsten (HTTP ${res.status})`;
+    }
+    if (!transportError) {
+      if (Array.isArray(data.results)) {
+        results = data.results;
+      } else {
+        transportError = data.error || `Mejl/SMS-tjänsten svarade HTTP ${res.status} utan resultat`;
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    transportError = /timeout|abort/i.test(msg)
+      ? `Mejl/SMS-tjänsten svarade inte inom ${SEND_TIMEOUT_MS / 1000} s`
+      : `Kunde inte nå mejl/SMS-tjänsten (projektet kan vara pausat): ${msg}`;
+  }
+
+  const log_ids: string[] = [];
+  for (let i = 0; i < recipients.length; i++) {
+    const r = recipients[i];
+    const result = transportError ? undefined : results[i];
+    const { status, error } = transportError
+      ? { status: "failed" as MessageStatus, error: transportError }
+      : statusFromResult(result);
+    const rows = await sql`
+      INSERT INTO message_log (kind, channel, trip_id, registration_id, recipient_name, recipient_email, recipient_phone, subject, message, status, email_ok, sms_ok, error, resent_from)
+      VALUES (${kind}, ${channel}, ${trip_id}, ${r.registration_id ?? null}, ${r.name ?? ""}, ${r.email ?? null}, ${r.phone ?? null}, ${subject}, ${message}, ${status}, ${result?.email ?? null}, ${result?.sms ?? null}, ${error}, ${resent_from})
+      RETURNING id`;
+    log_ids.push(rows[0].id);
+  }
+
+  if (transportError) {
+    // Samma form som ett vanligt svar så klienten kan visa fel per mottagare.
+    results = recipients.map((r) => ({ recipient: r.name, errors: [transportError!] }));
+    return { success: false, error: transportError, results, log_ids };
+  }
+  const success = results.length > 0 && results.every((r) => r.errors.length === 0);
+  return { success, results, log_ids };
+}
+
+function cleanRecipients(raw: unknown): OutgoingRecipient[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((r) => ({
+      name: String((r as OutgoingRecipient).name ?? "").trim(),
+      email: (r as OutgoingRecipient).email ? String((r as OutgoingRecipient).email).trim() : undefined,
+      phone: (r as OutgoingRecipient).phone ? String((r as OutgoingRecipient).phone).trim() : undefined,
+      registration_id: (r as OutgoingRecipient).registration_id ? String((r as OutgoingRecipient).registration_id) : undefined,
+    }))
+    .filter((r) => r.email || r.phone || r.name);
+}
+
 // Actions som är öppna för allmänheten (läsa publicerat innehåll + skapa anmälan).
 const PUBLIC_ACTIONS = new Set([
   "trips.listPublished",
@@ -65,6 +216,8 @@ const PUBLIC_ACTIONS = new Set([
   // Capability-länk: en registrant läser/kompletterar SIN egen anmälan via dess UUID.
   "registrations.getOne",
   "registrations.updateOwn",
+  // Bekräftelsemejlet efter anmälan — går alltid till anmälans egen e-postadress.
+  "messages.sendRegistration",
 ]);
 
 serve(async (req) => {
@@ -256,6 +409,84 @@ serve(async (req) => {
       case "registrations.delete":
         await sql`DELETE FROM registrations WHERE id = ${p.id as string}`;
         return json({ ok: true });
+
+      // ---------- MEDDELANDEN (mejl/SMS + utskickslogg) ----------
+      case "messages.send": {
+        const channel = p.channel as Channel;
+        if (!CHANNELS.includes(channel)) return json({ error: "Ogiltig kanal" }, 400);
+        const kind = (KINDS.includes(p.kind as MessageKind) ? p.kind : "admin") as MessageKind;
+        const message = String(p.message ?? "").trim();
+        if (!message) return json({ error: "Meddelandet är tomt" }, 400);
+        const recipients = cleanRecipients(p.recipients);
+        if (recipients.length === 0) return json({ error: "Inga mottagare" }, 400);
+        if (recipients.length > MAX_RECIPIENTS) return json({ error: `Max ${MAX_RECIPIENTS} mottagare per utskick` }, 400);
+        const subject = p.subject ? String(p.subject) : null;
+        const trip_id = p.trip_id ? String(p.trip_id) : null;
+        return json(await deliverAndLog({ kind, channel, trip_id, subject, message, recipients }));
+      }
+
+      // PUBLIK: bekräftelsemejl efter anmälan. Mottagaren är alltid anmälans egen
+      // e-post — texten byggs i klienten (den kan prisreglerna), men vem den går
+      // till bestäms här.
+      case "messages.sendRegistration": {
+        const registration_id = String(p.registration_id ?? "");
+        const message = String(p.message ?? "").trim();
+        if (!registration_id || !message) return json({ error: "registration_id och message krävs" }, 400);
+        const regs = await sql`SELECT id, trip_id, form_data FROM registrations WHERE id = ${registration_id}`;
+        const reg = regs[0];
+        if (!reg) return json({ error: "Anmälan hittades inte" }, 404);
+        const fd = (typeof reg.form_data === "string" ? JSON.parse(reg.form_data) : reg.form_data) as Record<string, unknown>;
+        const email = String(fd["E-post"] ?? "").trim();
+        const name = `${fd["Förnamn"] ?? ""} ${fd["Efternamn"] ?? ""}`.trim();
+        if (!email) return json({ success: false, error: "Anmälan saknar e-postadress", results: [], log_ids: [] });
+        return json(await deliverAndLog({
+          kind: "registration",
+          channel: "email",
+          trip_id: reg.trip_id,
+          subject: p.subject ? String(p.subject) : null,
+          message,
+          recipients: [{ name, email, registration_id }],
+        }));
+      }
+
+      case "messages.list": {
+        const limit = Math.min(Math.max(Number(p.limit) || 200, 1), 1000);
+        const trip_id = p.trip_id ? String(p.trip_id) : null;
+        const registration_id = p.registration_id ? String(p.registration_id) : null;
+        return json(await sql`
+          SELECT * FROM message_log
+          WHERE (${trip_id}::uuid IS NULL OR trip_id = ${trip_id}::uuid)
+            AND (${registration_id}::uuid IS NULL OR registration_id = ${registration_id}::uuid)
+          ORDER BY created_at DESC
+          LIMIT ${limit}`);
+      }
+
+      // Skickar om en loggad rad — samma text, samma mottagare — och loggar det nya försöket.
+      case "messages.resend": {
+        const id = String(p.id ?? "");
+        if (!id) return json({ error: "id krävs" }, 400);
+        const rows = await sql`SELECT * FROM message_log WHERE id = ${id}`;
+        const row = rows[0];
+        if (!row) return json({ error: "Utskicket hittades inte" }, 404);
+        const out = await deliverAndLog({
+          kind: row.kind as MessageKind,
+          channel: row.channel as Channel,
+          trip_id: row.trip_id ?? null,
+          subject: row.subject ?? null,
+          message: row.message,
+          recipients: [{
+            name: row.recipient_name ?? "",
+            email: row.recipient_email ?? undefined,
+            phone: row.recipient_phone ?? undefined,
+            registration_id: row.registration_id ?? undefined,
+          }],
+          resent_from: id,
+        });
+        const created = out.log_ids[0]
+          ? (await sql`SELECT * FROM message_log WHERE id = ${out.log_ids[0]}`)[0]
+          : null;
+        return json({ ...out, row: created });
+      }
 
       // ---------- PAGE CONTENT ----------
       case "pageContent.get": {

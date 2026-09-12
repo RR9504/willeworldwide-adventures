@@ -14,6 +14,7 @@ import TripPresentationPage from "./pages/TripPresentationPage";
 import PresentationFormPage from "./pages/PresentationFormPage";
 import RegistrationEditPage from "./pages/RegistrationEditPage";
 import AlertListPage from "./pages/AlertListPage";
+import MessageLogPage from "./pages/MessageLogPage";
 import ContentPagesPage from "./pages/ContentPagesPage";
 import ContentEditorPage from "./pages/ContentEditorPage";
 import LoginPage from "./pages/LoginPage";
@@ -65,6 +66,7 @@ const App = () => (
             <Route path="/dashboard/innehall" element={<ContentPagesPage />} />
             <Route path="/dashboard/innehall/:slug" element={<ContentEditorPage />} />
             <Route path="/dashboard/alerts/:type" element={<AlertListPage />} />
+            <Route path="/dashboard/utskick" element={<MessageLogPage />} />
             <Route path="/dashboard/resor/ny" element={<CreateTripPage />} />
             <Route path="/dashboard/resor/:id/redigera" element={<CreateTripPage />} />
             <Route path="/dashboard/resor/:id/deltagare/:regId" element={<ParticipantDetailPage />} />

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Send, Mail, MessageSquare, Loader2, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ const fullName = (r: Registration) =>
   `${r.form_data['Förnamn'] || ''} ${r.form_data['Efternamn'] || ''}`.trim();
 
 const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle, trigger }: SendMessageDialogProps) => {
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [channel, setChannel] = useState<Channel>('email');
   const [subject, setSubject] = useState('');
@@ -71,12 +73,17 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle, tr
         channel,
         subject,
         message,
+        kind: 'admin',
+        trip_id: recipients[0]?.trip_id,
         recipients: recipients.map(r => ({
           name: fullName(r),
           email: r.form_data['E-post'] || undefined,
           phone: r.form_data['Telefon'] || undefined,
+          registration_id: r.id,
         })),
       });
+      // Utfallet loggas server-side oavsett — visa det direkt där loggen visas.
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
 
       if (result.success) {
         const channelLabel = channel === 'email' ? 'E-post' : channel === 'sms' ? 'SMS' : 'E-post + SMS';
@@ -91,7 +98,10 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle, tr
       } else {
         // Vid delvis lyckat utskick står det i results vilka som inte nåddes.
         const detail = summarizeSendErrors(result.results);
-        toast.error(detail ? `Kunde inte skicka till: ${detail}` : (result.error || 'Kunde inte skicka meddelandet'));
+        toast.error(detail ? `Kunde inte skicka till: ${detail}` : (result.error || 'Kunde inte skicka meddelandet'), {
+          description: 'Utskicket är loggat under Utskick i dashboarden och kan skickas om därifrån.',
+          duration: 10000,
+        });
       }
     } catch {
       toast.error('Något gick fel vid skickandet');

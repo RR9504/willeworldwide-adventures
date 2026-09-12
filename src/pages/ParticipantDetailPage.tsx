@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2, Receipt, Printer, CheckCircle2, Send, Mail, Trash2, Pencil, Save, X, Copy } from 'lucide-react';
+import { ArrowLeft, User, CreditCard, FileText, MessageCircle, Loader2, Receipt, Printer, CheckCircle2, Send, Mail, Trash2, Pencil, Save, X, Copy, History } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -16,7 +16,9 @@ import { PaymentStatus, PromoCode } from '@/types/trip';
 import { EditableFormField } from '@/components/trips/EditableFormField';
 import { BookingDiscountEditor } from '@/components/trips/BookingDiscountEditor';
 import SendMessageDialog from '@/components/admin/SendMessageDialog';
-import { sendMessage, buildOrderConfirmationEmail, calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek, formatCurrencyDelta, findOptionForValue } from '@/lib/messaging';
+import MessageLogTable from '@/components/admin/MessageLogTable';
+import { useMessageLog, useResendMessage } from '@/hooks/useMessages';
+import { sendMessage, buildOrderConfirmationEmail, MessageLogEntry, calcExtraCostsFromFormData, collectTbdLabels, findPromoCode, calcPromoDiscountSek, formatCurrencyDelta, findOptionForValue } from '@/lib/messaging';
 import { toast } from 'sonner';
 
 const paymentLabels: Record<PaymentStatus, string> = {
@@ -37,6 +39,17 @@ const ParticipantDetailPage = () => {
   const reg = registrations.find(r => r.id === regId);
   const updateRegistration = useUpdateRegistration();
   const deleteRegistration = useDeleteRegistration();
+  const { data: messages = [], isLoading: messagesLoading } = useMessageLog({ registration_id: regId }, !!regId);
+  const resendMessage = useResendMessage();
+  const handleResend = async (entry: MessageLogEntry) => {
+    try {
+      const out = await resendMessage.mutateAsync(entry.id);
+      if (out.success) toast.success('Skickat igen');
+      else toast.error(`Gick inte att skicka om: ${out.error || 'okänt fel'}`);
+    } catch (err) {
+      toast.error(`Gick inte att skicka om: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
   const [editingBooking, setEditingBooking] = useState(false);
   const [bookingDraft, setBookingDraft] = useState<Record<string, any>>({});
   const [editingPresentation, setEditingPresentation] = useState(false);
@@ -306,9 +319,11 @@ const ParticipantDetailPage = () => {
                         try {
                           const result = await sendMessage({
                             channel: email ? 'email' : 'sms',
-                            recipients: [{ name: fullName, email, phone }],
+                            recipients: [{ name: fullName, email, phone, registration_id: reg.id }],
                             subject,
                             message,
+                            kind: 'order_confirmation',
+                            trip_id: trip.id,
                           });
                           if (result.success) {
                             toast.success(`Orderbekräftelse skickad till ${email || phone}`);
@@ -494,6 +509,26 @@ const ParticipantDetailPage = () => {
                   <p className="mt-2 text-sm text-muted-foreground">Har inte fyllt i presentationsformuläret ännu</p>
                   <p className="mt-1 text-xs text-muted-foreground">Länk: {window.location.origin}/resa/{trip.id}/presentation/{reg.id}</p>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Utskick till den här deltagaren — så det syns om bekräftelsen kom fram */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg"><History className="h-5 w-5 text-primary" /> Utskick</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {messagesLoading ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+              ) : (
+                <MessageLogTable
+                  entries={messages}
+                  hideRecipient
+                  onResend={handleResend}
+                  resendingId={resendMessage.isPending ? resendMessage.variables ?? null : null}
+                  emptyText="Inga mejl eller SMS har skickats till den här deltagaren ännu."
+                />
               )}
             </CardContent>
           </Card>

@@ -1,11 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, CreditCard, FileText, AlertTriangle, Loader2, Download, Cake } from 'lucide-react';
+import { Plus, CreditCard, FileText, AlertTriangle, Loader2, Download, Cake, MailWarning, History } from 'lucide-react';
 import { useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Header from '@/components/layout/Header';
 import { useTrips, useAllRegistrations } from '@/hooks/useTrips';
+import { useMessageLog } from '@/hooks/useMessages';
 
 const statusLabels: Record<string, string> = {
   draft: 'Utkast', published: 'Publicerad', closed: 'Stängd',
@@ -18,6 +19,12 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { data: trips = [], isLoading: tripsLoading } = useTrips();
   const { data: registrations = [], isLoading: regsLoading } = useAllRegistrations();
+  // Utskick som inte kom fram — bara de senaste veckorna, äldre är sannolikt redan hanterade.
+  const { data: messages = [] } = useMessageLog({ limit: 500 });
+  const failedMessages = useMemo(() => {
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    return messages.filter(m => m.status !== 'sent' && new Date(m.created_at).getTime() >= cutoff);
+  }, [messages]);
 
   const loading = tripsLoading || regsLoading;
 
@@ -108,6 +115,9 @@ const Dashboard = () => {
                 <Download className="h-4 w-4" /> Exportera passagerare
               </Button>
             )}
+            <Link to="/dashboard/utskick">
+              <Button variant="outline" className="gap-2"><History className="h-4 w-4" /> Utskick</Button>
+            </Link>
             <Link to="/dashboard/innehall">
               <Button variant="outline" className="gap-2"><FileText className="h-4 w-4" /> Redigera innehåll</Button>
             </Link>
@@ -162,6 +172,21 @@ const Dashboard = () => {
               <div>
                 <p className="text-2xl font-bold font-heading">{alerts.lowSpotsTrips.length}</p>
                 <p className="text-sm text-muted-foreground">Resor med få platser kvar</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className={`cursor-pointer transition-colors hover:bg-muted/50 ${failedMessages.length > 0 ? 'border-destructive/30' : ''}`}
+            onClick={() => navigate('/dashboard/utskick?status=problem')}
+          >
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className={`rounded-lg p-2.5 ${failedMessages.length > 0 ? 'bg-destructive/10' : 'bg-accent'}`}>
+                <MailWarning className={`h-5 w-5 ${failedMessages.length > 0 ? 'text-destructive' : 'text-primary'}`} />
+              </div>
+              <div>
+                <p className="text-2xl font-bold font-heading">{failedMessages.length}</p>
+                <p className="text-sm text-muted-foreground">Misslyckade utskick</p>
               </div>
             </CardContent>
           </Card>

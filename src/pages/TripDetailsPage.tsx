@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2, Send, ExternalLink, ChevronDown, ChevronUp, Copy, Trash2 } from 'lucide-react';
+import { ArrowLeft, Share2, Download, Filter, Pencil, FileText, Loader2, Send, ExternalLink, ChevronDown, ChevronUp, Copy, Trash2, History } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -324,6 +324,9 @@ const TripDetailsPage = () => {
                     tripTitle={trip.title}
                   />
                 )}
+                <Link to={`/dashboard/utskick?trip=${trip.id}`}>
+                  <Button size="sm" variant="outline" className="gap-2"><History className="h-4 w-4" /> Utskick</Button>
+                </Link>
               </div>
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />

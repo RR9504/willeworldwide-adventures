@@ -1,8 +1,14 @@
+import { callApi } from '@/lib/api';
+
 // Mejl/SMS (send-message) och AI-sammanfattning (ai-summary) ligger på ETT ANNAT
 // Supabase-projekt än data-api — konto robin.ruuska@live.se, gratisplan. Projektet
 // pausas efter ~7 dagars inaktivitet och då slutar all mejl- och SMS-utskick att
-// fungera, tyst, eftersom anmälningsmejlen skickas fire-and-forget.
-// .github/workflows/keepalive.yml pingar projektet för att hålla det vaket.
+// fungera. .github/workflows/keepalive.yml pingar projektet för att hålla det vaket.
+//
+// Mejl och SMS går sedan 2026-09 via data-api (messages.*), som anropar send-message
+// och loggar utfallet per mottagare i message_log — även när tjänsten inte svarar.
+// Misslyckade utskick syns under Utskick i dashboarden och kan skickas om därifrån.
+// ai-summary anropas fortfarande direkt.
 const EDGE_FUNCTIONS_URL = 'https://seprpsyzqmppsnmzptyo.supabase.co';
 
 export interface SummaryAnswer {
@@ -40,18 +46,57 @@ export async function generateAiSummary(params: { name: string; tripTitle?: stri
   }
 }
 
+export type MessageChannel = 'email' | 'sms' | 'both';
+/** Vad utskicket är: manuellt från admin, bekräftelse efter anmälan, eller orderbekräftelse. */
+export type MessageKind = 'admin' | 'registration' | 'order_confirmation';
+export type MessageStatus = 'sent' | 'failed' | 'partial';
+
 interface Recipient {
   name: string;
   email?: string;
   phone?: string;
+  /** Kopplar loggraden till anmälan så den syns på deltagarsidan. */
+  registration_id?: string;
 }
 
 interface SendMessageParams {
-  channel: 'email' | 'sms' | 'both';
+  channel: MessageChannel;
   recipients: Recipient[];
   subject?: string;
   message: string;
+  kind?: MessageKind;
+  trip_id?: string;
 }
+
+/** En rad i utskicksloggen (message_log i data-api). */
+export interface MessageLogEntry {
+  id: string;
+  created_at: string;
+  kind: MessageKind;
+  channel: MessageChannel;
+  trip_id: string | null;
+  registration_id: string | null;
+  recipient_name: string;
+  recipient_email: string | null;
+  recipient_phone: string | null;
+  subject: string | null;
+  message: string;
+  status: MessageStatus;
+  email_ok: boolean | null;
+  sms_ok: boolean | null;
+  error: string | null;
+  resent_from: string | null;
+}
+
+export const messageStatusLabels: Record<MessageStatus, string> = {
+  sent: 'Skickat', failed: 'Misslyckades', partial: 'Delvis skickat',
+};
+export const messageKindLabels: Record<MessageKind, string> = {
+  admin: 'Meddelande', registration: 'Anmälningsbekräftelse', order_confirmation: 'Orderbekräftelse',
+};
+export const messageChannelLabels: Record<MessageChannel, string> = {
+  email: 'E-post', sms: 'SMS', both: 'E-post + SMS',
+};
 
 /** Utfall per mottagare från send-message. */
 export interface SendResult {
@@ -76,40 +121,59 @@ export function summarizeSendErrors(results: SendResult[] | undefined): string {
   return shown.join(', ') + (rest > 0 ? ` och ${rest} till` : '');
 }
 
+interface SendResponse {
+  success: boolean;
+  error?: string;
+  results?: SendResult[];
+  log_ids?: string[];
+}
+
+function interpretSendResponse(data: SendResponse): { success: boolean; error?: string; results?: SendResult[] } {
+  if (!data.success) {
+    // Vid delvis lyckat utskick står det i results vilka som inte nåddes.
+    const detail = summarizeSendErrors(data.results);
+    return { success: false, error: detail || data.error || 'Utskicket misslyckades', results: data.results };
+  }
+  return { success: true, results: data.results };
+}
+
+function describeApiFailure(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+    return 'Kunde inte nå servern — kontrollera nätverket och försök igen.';
+  }
+  return msg;
+}
+
+/**
+ * Admin-utskick (manuellt meddelande eller orderbekräftelse). Går via data-api som
+ * loggar varje mottagare i utskicksloggen, så ett fel aldrig försvinner spårlöst.
+ */
 export async function sendMessage(
   params: SendMessageParams,
 ): Promise<{ success: boolean; error?: string; results?: SendResult[] }> {
   try {
-    const res = await fetch(`${EDGE_FUNCTIONS_URL}/functions/v1/send-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    });
-
-    let data: { success?: boolean; error?: string; results?: SendResult[] } = {};
-    try {
-      data = await res.json();
-    } catch {
-      return { success: false, error: `Oväntat svar från servern (HTTP ${res.status}).` };
-    }
-
-    if (!res.ok || data.success === false) {
-      // 207 = delvis lyckat. Statuskoden är 2xx, så res.ok räcker inte som kontroll.
-      const detail = summarizeSendErrors(data.results);
-      return {
-        success: false,
-        error: data.error || detail || `HTTP ${res.status}`,
-        results: data.results,
-      };
-    }
-    return { success: true, results: data.results };
+    const data = await callApi<SendResponse>('messages.send', { kind: 'admin', ...params });
+    return interpretSendResponse(data);
   } catch (err) {
-    // Nätverksfel, DNS-fel (Supabase-projekt pausat), CORS — returnera tydligt fel istället för att kasta vidare.
-    const msg = err instanceof Error ? err.message : String(err);
-    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
-      return { success: false, error: 'Kunde inte nå mejl/SMS-tjänsten — kontrollera att Supabase-projektet är aktivt och att edge function "send-message" är deployad.' };
-    }
-    return { success: false, error: `Kunde inte nå mejl/SMS-tjänsten: ${msg}` };
+    return { success: false, error: `Utskicket kunde inte göras: ${describeApiFailure(err)}` };
+  }
+}
+
+/**
+ * Bekräftelsemejl efter anmälan (publikt anrop). Mottagaren avgörs av servern:
+ * alltid anmälans egen e-postadress.
+ */
+export async function sendRegistrationEmail(params: {
+  registration_id: string;
+  subject: string;
+  message: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const data = await callApi<SendResponse>('messages.sendRegistration', params);
+    return interpretSendResponse(data);
+  } catch (err) {
+    return { success: false, error: describeApiFailure(err) };
   }
 }
 

@@ -6,9 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import DynamicForm, { SubmitMeta } from '@/components/trips/DynamicForm';
 import { TripDescription } from '@/components/trips/TripDescription';
 import { useTrip, useTripRegistrationCounts, useCreateRegistration, useCreateRegistrations } from '@/hooks/useTrips';
-import { sendMessage, buildRegistrationEmail, calcMinRequiredExtraSek, findPromoCode, calcPromoDiscountSek } from '@/lib/messaging';
+import { sendRegistrationEmail, buildRegistrationEmail, calcMinRequiredExtraSek, findPromoCode, calcPromoDiscountSek } from '@/lib/messaging';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { Registration } from '@/types/trip';
 
 const categoryLabels: Record<string, string> = {
   ski: 'Skidresa', group: 'Gruppresa', corporate: 'Företag', other: 'Övrigt',
@@ -66,8 +67,10 @@ const TripRegistrationPage = () => {
     toast.success('Länk kopierad!');
   };
 
+  // Bekräftelsemejl till varje sparad anmälan. Går via data-api som loggar utfallet,
+  // så ett mejl som inte kom fram syns under Utskick i dashboarden.
   const sendRegistrationEmails = async (
-    allFormData: Record<string, any>[],
+    createdRegs: Registration[],
     allPresentationData: Record<string, string>[],
     extraCosts: Record<string, number>,
     tbdLabels: string[],
@@ -76,12 +79,12 @@ const TripRegistrationPage = () => {
     const promo = findPromoCode(trip.promo_codes, promoCode);
     // Rabatten räknas på det varje mejl visar: grundpris + SEK-tillägg.
     const promoDiscount = promo ? calcPromoDiscountSek(trip.price + (extraCosts['SEK'] || 0), promo) : 0;
-    for (let i = 0; i < allFormData.length; i++) {
-      const formData = allFormData[i];
+    for (let i = 0; i < createdRegs.length; i++) {
+      const reg = createdRegs[i];
+      const formData = reg.form_data;
       const presentationData = allPresentationData[i] || {};
       const email = formData['E-post'];
       const firstName = formData['Förnamn'] || '';
-      const lastName = formData['Efternamn'] || '';
       if (!email) continue;
 
       const { subject, message } = buildRegistrationEmail({
@@ -101,13 +104,8 @@ const TripRegistrationPage = () => {
         presentationFields: trip.presentation_fields,
         presentationData,
       });
-      // Fire and forget — blockera inte UI, men logga fel så de syns i konsolen.
-      sendMessage({
-        channel: 'email',
-        recipients: [{ name: `${firstName} ${lastName}`.trim(), email }],
-        subject,
-        message,
-      })
+      // Fire and forget — blockera inte UI. Utfallet loggas server-side.
+      sendRegistrationEmail({ registration_id: reg.id, subject, message })
         .then(r => { if (!r.success) console.error(`Registreringsmejl till ${email} misslyckades:`, r.error); })
         .catch(err => console.error(`Registreringsmejl till ${email} kastade:`, err));
     }
@@ -135,13 +133,13 @@ const TripRegistrationPage = () => {
             presentation_data: companionPresentations[idx] || {},
           })),
         ];
-        await createRegistrations.mutateAsync(allRegs);
+        const created = await createRegistrations.mutateAsync(allRegs);
         toast.success(`${allRegs.length} anmälningar skickade!`);
-        sendRegistrationEmails([mainData, ...companions], [presentationData, ...companionPresentations], extraCosts, tbdLabels, promoCode);
+        sendRegistrationEmails(created, [presentationData, ...companionPresentations], extraCosts, tbdLabels, promoCode);
       } else {
-        await createRegistration.mutateAsync({ trip_id: trip.id, form_data: mainData, presentation_data: presentationData });
+        const created = await createRegistration.mutateAsync({ trip_id: trip.id, form_data: mainData, presentation_data: presentationData });
         toast.success('Anmälan skickad!');
-        sendRegistrationEmails([mainData], [presentationData], extraCosts, tbdLabels, promoCode);
+        sendRegistrationEmails([created], [presentationData], extraCosts, tbdLabels, promoCode);
       }
       return true;
     } catch (err) {
