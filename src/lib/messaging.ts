@@ -137,6 +137,53 @@ function interpretSendResponse(data: SendResponse): { success: boolean; error?: 
   return { success: true, results: data.results };
 }
 
+/**
+ * data-api i produktion driftsätts av Lovable, inte av GitHub-push. Tills
+ * messages.* finns där svarar den gamla funktionen "Okänd action" (admin) eller
+ * "Ej inloggad" (publikt anrop som inte är publikt än). Då skickar vi direkt via
+ * send-message som förr — utan logg, men utskicket kommer fram.
+ */
+function isMissingDataApiAction(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /Okänd action|Ej inloggad/.test(msg);
+}
+
+interface DirectRecipient {
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
+async function sendDirect(params: {
+  channel: MessageChannel;
+  recipients: DirectRecipient[];
+  subject?: string;
+  message: string;
+}): Promise<{ success: boolean; error?: string; results?: SendResult[] }> {
+  try {
+    const res = await fetch(`${EDGE_FUNCTIONS_URL}/functions/v1/send-message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    let data: SendResponse;
+    try {
+      data = await res.json();
+    } catch {
+      return { success: false, error: `Oväntat svar från servern (HTTP ${res.status}).` };
+    }
+    // 207 = delvis lyckat. Statuskoden är 2xx, så res.ok räcker inte som kontroll.
+    if (!res.ok) return { success: false, error: data.error || `HTTP ${res.status}`, results: data.results };
+    return interpretSendResponse(data);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      return { success: false, error: 'Kunde inte nå mejl/SMS-tjänsten — kontrollera att Supabase-projektet är aktivt och att edge function "send-message" är deployad.' };
+    }
+    return { success: false, error: `Kunde inte nå mejl/SMS-tjänsten: ${msg}` };
+  }
+}
+
 function describeApiFailure(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
   if (/failed to fetch|networkerror|load failed/i.test(msg)) {
@@ -156,6 +203,15 @@ export async function sendMessage(
     const data = await callApi<SendResponse>('messages.send', { kind: 'admin', ...params });
     return interpretSendResponse(data);
   } catch (err) {
+    if (isMissingDataApiAction(err)) {
+      console.warn('data-api saknar messages.send — skickar direkt utan logg');
+      return sendDirect({
+        channel: params.channel,
+        subject: params.subject,
+        message: params.message,
+        recipients: params.recipients.map(r => ({ name: r.name, email: r.email, phone: r.phone })),
+      });
+    }
     return { success: false, error: `Utskicket kunde inte göras: ${describeApiFailure(err)}` };
   }
 }
@@ -168,11 +224,18 @@ export async function sendRegistrationEmail(params: {
   registration_id: string;
   subject: string;
   message: string;
+  /** Används bara om data-api ännu saknar messages.sendRegistration (se isMissingDataApiAction). */
+  fallbackRecipient: DirectRecipient;
 }): Promise<{ success: boolean; error?: string }> {
+  const { fallbackRecipient, ...apiParams } = params;
   try {
-    const data = await callApi<SendResponse>('messages.sendRegistration', params);
+    const data = await callApi<SendResponse>('messages.sendRegistration', apiParams);
     return interpretSendResponse(data);
   } catch (err) {
+    if (isMissingDataApiAction(err)) {
+      console.warn('data-api saknar messages.sendRegistration — skickar direkt utan logg');
+      return sendDirect({ channel: 'email', recipients: [fallbackRecipient], subject: params.subject, message: params.message });
+    }
     return { success: false, error: describeApiFailure(err) };
   }
 }

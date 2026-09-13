@@ -85,6 +85,7 @@ const TripRegistrationPage = () => {
       const presentationData = allPresentationData[i] || {};
       const email = formData['E-post'];
       const firstName = formData['Förnamn'] || '';
+      const lastName = formData['Efternamn'] || '';
       if (!email) continue;
 
       const { subject, message } = buildRegistrationEmail({
@@ -105,7 +106,12 @@ const TripRegistrationPage = () => {
         presentationData,
       });
       // Fire and forget — blockera inte UI. Utfallet loggas server-side.
-      sendRegistrationEmail({ registration_id: reg.id, subject, message })
+      sendRegistrationEmail({
+        registration_id: reg.id,
+        subject,
+        message,
+        fallbackRecipient: { name: `${firstName} ${lastName}`.trim(), email },
+      })
         .then(r => { if (!r.success) console.error(`Registreringsmejl till ${email} misslyckades:`, r.error); })
         .catch(err => console.error(`Registreringsmejl till ${email} kastade:`, err));
     }
