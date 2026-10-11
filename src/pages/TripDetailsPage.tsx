@@ -17,6 +17,7 @@ import SendMessageDialog from '@/components/admin/SendMessageDialog';
 import { PaymentStatus } from '@/types/trip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
+import { findOptionForValue } from '@/lib/messaging';
 
 const paymentLabels: Record<PaymentStatus, string> = {
   unpaid: 'Ej betald', paid: 'Betald', partial: 'Deposition betald', refunded: 'Återbetald',
@@ -51,6 +52,12 @@ const TripDetailsPage = () => {
     if (col === 'Betalningsstatus') return paymentLabels[r.payment_status];
     if (col === 'Anmälningsdatum') return new Date(r.created_at).toLocaleDateString('sv-SE');
     const val = r.form_data[col];
+    // Visa option-etikett istället för dess interna "value" (värdet kan vara kvar från mallen)
+    const field = trip?.form_fields.find(f => f.label === col);
+    if (field?.type === 'select') {
+      const label = findOptionForValue(field.options, val)?.label;
+      if (label) return label;
+    }
     if (val === true) return 'Ja';
     if (val === false) return 'Nej';
     return val != null && val !== '' ? String(val) : '';
