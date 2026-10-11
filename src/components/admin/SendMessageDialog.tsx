@@ -16,6 +16,8 @@ interface SendMessageDialogProps {
   recipients: Registration[];
   filterLabel?: string;
   filterValue?: string;
+  /** Beskrivning av urvalet när mottagarna inte kommer från ett filter, t.ex. manuellt valda. */
+  recipientsLabel?: string;
   tripTitle: string;
   /** Egen knapp — används för enskild resenär, där "Skicka meddelande (1)" läser konstigt. */
   trigger?: React.ReactNode;
@@ -24,7 +26,7 @@ interface SendMessageDialogProps {
 const fullName = (r: Registration) =>
   `${r.form_data['Förnamn'] || ''} ${r.form_data['Efternamn'] || ''}`.trim();
 
-const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle, trigger }: SendMessageDialogProps) => {
+const SendMessageDialog = ({ recipients, filterLabel, filterValue, recipientsLabel, tripTitle, trigger }: SendMessageDialogProps) => {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [channel, setChannel] = useState<Channel>('email');
@@ -110,9 +112,10 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, tripTitle, tr
     }
   };
 
-  const filterDescription = filterLabel && filterValue
-    ? `${filterValue === 'true' ? 'Ja' : filterValue === 'false' ? 'Nej' : filterValue} (${filterLabel})`
-    : 'Alla deltagare';
+  const filterDescription = recipientsLabel
+    ?? (filterLabel && filterValue
+      ? `${filterValue === 'true' ? 'Ja' : filterValue === 'false' ? 'Nej' : filterValue} (${filterLabel})`
+      : 'Alla deltagare');
 
   const channelButton = (value: Channel, icon: React.ReactNode, label: string, enabled: boolean) => (
     <Button

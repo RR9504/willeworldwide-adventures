@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -39,6 +40,9 @@ const TripDetailsPage = () => {
   const [filterField, setFilterField] = useState<string>('');
   const [filterValue, setFilterValue] = useState<string>('');
   const [expandedSummary, setExpandedSummary] = useState<Record<string, boolean>>({});
+  // Manuellt valda mottagare. Valet ligger kvar när filtret byts, så man kan t.ex.
+  // filtrera fram ett hotell, markera alla, byta till nästa hotell och markera fler.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fieldLabels = trip?.form_fields.map(f => f.label) ?? [];
   const allFilterLabels = [...fieldLabels, 'Betalningsstatus', 'Anmälningsdatum'];
@@ -66,6 +70,30 @@ const TripDetailsPage = () => {
     if (!filterField || !filterValue) return registrations;
     return registrations.filter(r => getColumnValue(r, filterField) === filterValue);
   }, [registrations, filterField, filterValue]);
+
+  // Anmälningar som tagits bort försvinner ur valet.
+  const selectedRegs = useMemo(
+    () => registrations.filter(r => selectedIds.has(r.id)),
+    [registrations, selectedIds],
+  );
+  const visibleSelectedCount = filteredRegs.filter(r => selectedIds.has(r.id)).length;
+  const allVisibleSelected = filteredRegs.length > 0 && visibleSelectedCount === filteredRegs.length;
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleAllVisible = (checked: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      filteredRegs.forEach(r => { if (checked) next.add(r.id); else next.delete(r.id); });
+      return next;
+    });
+  };
 
   const summary = useMemo(() => {
     if (!trip) return { counts: {}, lists: {} };
@@ -316,7 +344,18 @@ const TripDetailsPage = () => {
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-3">
                 <CardTitle className="text-lg">Deltagare ({filteredRegs.length})</CardTitle>
-                {filteredRegs.length > 0 && (
+                {selectedRegs.length > 0 ? (
+                  <>
+                    <SendMessageDialog
+                      recipients={selectedRegs}
+                      recipientsLabel="Manuellt valda"
+                      tripTitle={trip.title}
+                    />
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                      Avmarkera ({selectedRegs.length})
+                    </Button>
+                  </>
+                ) : filteredRegs.length > 0 && (
                   <SendMessageDialog
                     recipients={filteredRegs}
                     filterLabel={filterField && filterField !== '__none' ? filterField : undefined}
@@ -351,6 +390,14 @@ const TripDetailsPage = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        aria-label="Markera alla som visas"
+                        checked={allVisibleSelected}
+                        onCheckedChange={c => toggleAllVisible(c === true)}
+                        disabled={filteredRegs.length === 0}
+                      />
+                    </TableHead>
                     <TableHead className="w-10">#</TableHead>
                     {allFilterLabels.map(l => <TableHead key={l}>{l}</TableHead>)}
                     {trip.presentation_fields.length > 0 && <TableHead>Lär känna</TableHead>}
@@ -359,6 +406,13 @@ const TripDetailsPage = () => {
                 <TableBody>
                   {filteredRegs.map((r, i) => (
                     <TableRow key={r.id} className="cursor-pointer hover:bg-accent/50" onClick={() => navigate(`/dashboard/resor/${trip.id}/deltagare/${r.id}`)}>
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        <Checkbox
+                          aria-label={`Markera ${r.form_data['Förnamn'] || ''} ${r.form_data['Efternamn'] || ''}`.trim()}
+                          checked={selectedIds.has(r.id)}
+                          onCheckedChange={c => toggleSelected(r.id, c === true)}
+                        />
+                      </TableCell>
                       <TableCell>{i + 1}</TableCell>
                       {allFilterLabels.map(col => (
                         <TableCell key={col} className="max-w-[180px] truncate">
@@ -405,7 +459,7 @@ const TripDetailsPage = () => {
                     </TableRow>
                   ))}
                   {filteredRegs.length === 0 && (
-                    <TableRow><TableCell colSpan={allFilterLabels.length + 2} className="py-8 text-center text-muted-foreground">Inga deltagare matchar filtret</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={allFilterLabels.length + 3} className="py-8 text-center text-muted-foreground">Inga deltagare matchar filtret</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
