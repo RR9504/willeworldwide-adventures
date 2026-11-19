@@ -30,34 +30,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAdmin(!!data);
   };
 
+  // loading får bli false först när admin-rollen är kontrollerad. Annars ser
+  // ProtectedRoute en inloggad admin som "inte admin" under kontrollen och
+  // skickar till /login — vid varje omladdning av en dashboard-sida.
+  const applySession = async (session: Session | null) => {
+    setSession(session);
+    setUser(session?.user ?? null);
+    if (session?.user) {
+      try {
+        await checkAdmin(session.user.id);
+      } catch {
+        setIsAdmin(false);
+      }
+    } else {
+      setIsAdmin(false);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          setTimeout(() => checkAdmin(session.user.id), 0);
-        } else {
-          setIsAdmin(false);
-        }
-        setLoading(false);
+      (_event, session) => {
+        // setTimeout: supabase-anrop direkt i callbacken kan låsa auth-klienten.
+        setTimeout(() => { applySession(session); }, 0);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        checkAdmin(session.user.id);
-      }
-      setLoading(false);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => applySession(session));
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    // Vänta in admin-kontrollen så att navigate('/dashboard') direkt efteråt
+    // inte möter isAdmin=false och studsar tillbaka till /login.
+    if (!error) await applySession(data.session);
     return { error: error as Error | null };
   };
 
