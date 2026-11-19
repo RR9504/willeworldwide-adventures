@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Send, Mail, MessageSquare, Loader2, AlertTriangle } from 'lucide-react';
+import { Send, Mail, MessageSquare, Loader2, AlertTriangle, Paperclip, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Registration } from '@/types/trip';
-import { sendMessage, summarizeSendErrors } from '@/lib/messaging';
+import {
+  sendMessage, summarizeSendErrors, uploadMessageAttachment,
+  MessageAttachment, MAX_ATTACHMENTS, ATTACHMENT_ACCEPT,
+} from '@/lib/messaging';
 import { toast } from 'sonner';
 
 type Channel = 'email' | 'sms' | 'both';
@@ -33,6 +36,33 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, recipientsLab
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const formatSize = (bytes?: number) =>
+    bytes === undefined ? '' : bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} kB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const room = MAX_ATTACHMENTS - attachments.length;
+    const picked = Array.from(files).slice(0, room);
+    if (files.length > room) toast.error(`Max ${MAX_ATTACHMENTS} bilagor per meddelande`);
+    setUploading(true);
+    try {
+      for (const file of picked) {
+        try {
+          const uploaded = await uploadMessageAttachment(file);
+          setAttachments(prev => [...prev, uploaded]);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : `Kunde inte ladda upp ${file.name}`);
+        }
+      }
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const isSingle = recipients.length === 1;
   const recipientNames = recipients.map(fullName).filter(Boolean);
@@ -77,6 +107,7 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, recipientsLab
         message,
         kind: 'admin',
         trip_id: recipients[0]?.trip_id,
+        attachments: channel === 'sms' ? undefined : attachments,
         recipients: recipients.map(r => ({
           name: fullName(r),
           email: r.form_data['E-post'] || undefined,
@@ -97,6 +128,7 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, recipientsLab
         setOpen(false);
         setMessage('');
         setSubject('');
+        setAttachments([]);
       } else {
         // Vid delvis lyckat utskick står det i results vilka som inte nåddes.
         const detail = summarizeSendErrors(result.results);
@@ -227,7 +259,56 @@ const SendMessageDialog = ({ recipients, filterLabel, filterValue, recipientsLab
             </p>
           </div>
 
-          <Button onClick={handleSend} disabled={sending} className="w-full gap-2">
+          {/* Bilagor (bara e-post) */}
+          {(channel === 'email' || channel === 'both') && (
+            <div className="space-y-1.5">
+              <Label className="text-sm">Bilagor</Label>
+              {attachments.length > 0 && (
+                <ul className="space-y-1">
+                  {attachments.map(a => (
+                    <li key={a.url} className="flex items-center gap-2 rounded-md border px-2 py-1 text-sm">
+                      <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate">{a.filename}</span>
+                      <span className="text-xs text-muted-foreground">{formatSize(a.size)}</span>
+                      <button
+                        type="button"
+                        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        onClick={() => setAttachments(prev => prev.filter(x => x.url !== a.url))}
+                        aria-label={`Ta bort ${a.filename}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={ATTACHMENT_ACCEPT}
+                className="hidden"
+                onChange={e => handleFiles(e.target.files)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={uploading || attachments.length >= MAX_ATTACHMENTS}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                {uploading ? 'Laddar upp...' : 'Bifoga fil'}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                PDF, bilder, Word, Excel m.m. — max 10 MB per fil, {MAX_ATTACHMENTS} filer.
+                {channel === 'both' && ' Bilagan följer bara med e-posten, inte SMS:et.'}
+              </p>
+            </div>
+          )}
+
+          <Button onClick={handleSend} disabled={sending || uploading} className="w-full gap-2">
             {sending ? (
               <><Loader2 className="h-4 w-4 animate-spin" /> Skickar...</>
             ) : (

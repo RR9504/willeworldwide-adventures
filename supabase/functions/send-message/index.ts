@@ -11,6 +11,12 @@ interface Recipient {
   phone?: string;
 }
 
+/** Bilaga som Resend hämtar själv från en publik URL (vår storage-bucket). */
+interface Attachment {
+  filename: string;
+  url: string;
+}
+
 interface SendRequest {
   channel: "email" | "sms" | "both";
   recipients: Recipient[];
@@ -18,6 +24,7 @@ interface SendRequest {
   message: string;
   from_email?: string;
   from_name?: string;
+  attachments?: Attachment[];
 }
 
 async function sendSMS(to: string, message: string): Promise<{ ok: boolean; error?: string }> {
@@ -51,6 +58,7 @@ async function sendEmail(
   html: string,
   fromEmail: string,
   fromName: string,
+  attachments: Attachment[],
 ): Promise<{ ok: boolean; error?: string }> {
   const apiKey = Deno.env.get("RESEND_API_KEY")!;
 
@@ -65,6 +73,9 @@ async function sendEmail(
       to: [`${toName} <${to}>`],
       subject,
       html,
+      ...(attachments.length > 0
+        ? { attachments: attachments.map((a) => ({ filename: a.filename, path: a.url })) }
+        : {}),
     }),
   });
 
@@ -109,6 +120,8 @@ serve(async (req) => {
   try {
     const body: SendRequest = await req.json();
     const { channel, recipients, subject, message, from_email, from_name } = body;
+    const attachments = (Array.isArray(body.attachments) ? body.attachments : [])
+      .filter((a) => a && typeof a.filename === "string" && typeof a.url === "string" && /^https:\/\//.test(a.url));
 
     const fromAddr = from_email || "hej@willeworldwide.se";
     const fromN = from_name || "Wille Worldwide";
@@ -137,6 +150,7 @@ serve(async (req) => {
           htmlBody,
           fromAddr,
           fromN,
+          attachments,
         );
         entry.email = emailResult.ok;
         if (!emailResult.ok) entry.errors.push(`Email: ${emailResult.error}`);
@@ -148,7 +162,9 @@ serve(async (req) => {
     const allOk = results.every((r) => r.errors.length === 0);
 
     return new Response(
-      JSON.stringify({ success: allOk, results }),
+      // features: låter data-api se att den här versionen kan bifoga filer — en äldre
+      // deploy ignorerar attachments tyst, och det ska inte gå obemärkt förbi.
+      JSON.stringify({ success: allOk, results, features: ["attachments"] }),
       {
         status: allOk ? 200 : 207,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

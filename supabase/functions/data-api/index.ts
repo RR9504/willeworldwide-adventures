@@ -41,6 +41,8 @@ const schemaReady = (async () => {
     resent_from uuid
   )`;
   await sql`CREATE INDEX IF NOT EXISTS message_log_created_at_idx ON message_log (created_at DESC)`;
+  // Bilagor till mejl: [{ filename, url }] — sparas så att ett omskick får med dem.
+  await sql`ALTER TABLE message_log ADD COLUMN IF NOT EXISTS attachments jsonb`;
 })().catch((e) => console.error("schema migration failed", e));
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -95,6 +97,52 @@ interface OutgoingRecipient {
   registration_id?: string;
 }
 
+/** Mejlbilaga: fil i bucketen message-attachments som Resend hämtar via URL. */
+interface Attachment {
+  filename: string;
+  url: string;
+}
+
+const ATTACHMENT_BUCKET = "message-attachments";
+const MAX_ATTACHMENTS = 5;
+// Resend tar max 40 MB per mejl inklusive kodning — håll god marginal.
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const ATTACHMENT_TYPES: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+  heic: "image/heic",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  txt: "text/plain",
+  csv: "text/csv",
+  ics: "text/calendar",
+  zip: "application/zip",
+};
+
+/**
+ * Bara filer i vår egen bucket släpps igenom — annars kunde vem som helst med
+ * admin-token få Resend att hämta och skicka godtyckliga URL:er.
+ */
+function cleanAttachments(raw: unknown): Attachment[] {
+  if (!Array.isArray(raw)) return [];
+  const prefix = `${SUPABASE_URL}/storage/v1/object/public/${ATTACHMENT_BUCKET}/`;
+  return raw
+    .map((a) => ({
+      filename: String((a as Attachment)?.filename ?? "").trim(),
+      url: String((a as Attachment)?.url ?? ""),
+    }))
+    .filter((a) => a.filename && a.url.startsWith(prefix))
+    .slice(0, MAX_ATTACHMENTS);
+}
+
 /** Utfall per mottagare så som send-message rapporterar det. */
 interface SendResult {
   recipient: string;
@@ -131,9 +179,11 @@ async function deliverAndLog(opts: {
   subject: string | null;
   message: string;
   recipients: OutgoingRecipient[];
+  attachments?: Attachment[];
   resent_from?: string | null;
 }): Promise<{ success: boolean; error?: string; results: SendResult[]; log_ids: string[] }> {
-  const { kind, channel, trip_id, subject, message, recipients, resent_from = null } = opts;
+  const { kind, channel, trip_id, subject, message, recipients, attachments = [], resent_from = null } = opts;
+  const sendsEmail = channel === "email" || channel === "both";
 
   let results: SendResult[] = [];
   let transportError: string | null = null;
@@ -146,10 +196,11 @@ async function deliverAndLog(opts: {
         subject: subject ?? undefined,
         message,
         recipients: recipients.map((r) => ({ name: r.name, email: r.email, phone: r.phone })),
+        ...(attachments.length > 0 ? { attachments } : {}),
       }),
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     });
-    let data: { success?: boolean; error?: string; results?: SendResult[] } = {};
+    let data: { success?: boolean; error?: string; results?: SendResult[]; features?: string[] } = {};
     try {
       data = await res.json();
     } catch {
@@ -158,6 +209,12 @@ async function deliverAndLog(opts: {
     if (!transportError) {
       if (Array.isArray(data.results)) {
         results = data.results;
+        // En äldre send-message ignorerar attachments tyst: mejlet går fram men utan
+        // bilaga. Markera det som fel så att det syns i loggen och kan skickas om.
+        if (sendsEmail && attachments.length > 0 && !data.features?.includes("attachments")) {
+          const note = "Email: bilagan kom inte med — send-message behöver deployas om på mejl/SMS-projektet";
+          results = results.map((r) => (r.email ? { ...r, errors: [...r.errors, note] } : r));
+        }
       } else {
         transportError = data.error || `Mejl/SMS-tjänsten svarade HTTP ${res.status} utan resultat`;
       }
@@ -177,8 +234,8 @@ async function deliverAndLog(opts: {
       ? { status: "failed" as MessageStatus, error: transportError }
       : statusFromResult(result);
     const rows = await sql`
-      INSERT INTO message_log (kind, channel, trip_id, registration_id, recipient_name, recipient_email, recipient_phone, subject, message, status, email_ok, sms_ok, error, resent_from)
-      VALUES (${kind}, ${channel}, ${trip_id}, ${r.registration_id ?? null}, ${r.name ?? ""}, ${r.email ?? null}, ${r.phone ?? null}, ${subject}, ${message}, ${status}, ${result?.email ?? null}, ${result?.sms ?? null}, ${error}, ${resent_from})
+      INSERT INTO message_log (kind, channel, trip_id, registration_id, recipient_name, recipient_email, recipient_phone, subject, message, status, email_ok, sms_ok, error, resent_from, attachments)
+      VALUES (${kind}, ${channel}, ${trip_id}, ${r.registration_id ?? null}, ${r.name ?? ""}, ${r.email ?? null}, ${r.phone ?? null}, ${subject}, ${message}, ${status}, ${result?.email ?? null}, ${result?.sms ?? null}, ${error}, ${resent_from}, ${sendsEmail && attachments.length > 0 ? JSON.stringify(attachments) : null}::jsonb)
       RETURNING id`;
     log_ids.push(rows[0].id);
   }
@@ -339,6 +396,36 @@ serve(async (req) => {
         return json({ ok: true });
       }
 
+      // ---------- MEJLBILAGOR (Supabase Storage) ----------
+      // Filen laddas upp först; mejlet bär sedan bara URL:en, som Resend hämtar.
+      case "messageFiles.upload": {
+        const filename = String(p.filename ?? "").trim();
+        const content_base64 = String(p.content_base64 ?? "");
+        if (!filename || !content_base64) return json({ error: "filename och content_base64 krävs" }, 400);
+        const ext = (filename.match(/\.([a-z0-9]+)$/i)?.[1] ?? "").toLowerCase();
+        const contentType = ATTACHMENT_TYPES[ext];
+        if (!contentType) return json({ error: `Filtypen .${ext || "?"} stöds inte som bilaga` }, 400);
+        // base64 är ~4/3 av filens storlek
+        if (content_base64.length > Math.ceil(MAX_ATTACHMENT_BYTES * 4 / 3) + 4) {
+          return json({ error: "Filen är för stor (max 10 MB)" }, 413);
+        }
+
+        const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+        await admin.storage.createBucket(ATTACHMENT_BUCKET, { public: true }).catch(() => {});
+
+        const bytes = Uint8Array.from(atob(content_base64), (c) => c.charCodeAt(0));
+        const safe = filename.replace(/[^a-zA-Z0-9åäöÅÄÖ._-]+/g, "-");
+        // Slumpad mapp: bucketen är publik, så sökvägen ska inte gå att gissa.
+        const path = `${crypto.randomUUID()}/${safe}`;
+        const { error: upErr } = await admin.storage
+          .from(ATTACHMENT_BUCKET)
+          .upload(path, new Blob([bytes], { type: contentType }), { contentType });
+        if (upErr) return json({ error: `Uppladdningen misslyckades: ${upErr.message}` }, 500);
+
+        const { data: pub } = admin.storage.from(ATTACHMENT_BUCKET).getPublicUrl(path);
+        return json({ filename, url: pub.publicUrl, size: bytes.length });
+      }
+
       // ---------- REGISTRATIONS ----------
       case "registrations.create": {
         const r = p as Record<string, any>;
@@ -422,7 +509,8 @@ serve(async (req) => {
         if (recipients.length > MAX_RECIPIENTS) return json({ error: `Max ${MAX_RECIPIENTS} mottagare per utskick` }, 400);
         const subject = p.subject ? String(p.subject) : null;
         const trip_id = p.trip_id ? String(p.trip_id) : null;
-        return json(await deliverAndLog({ kind, channel, trip_id, subject, message, recipients }));
+        const attachments = cleanAttachments(p.attachments);
+        return json(await deliverAndLog({ kind, channel, trip_id, subject, message, recipients, attachments }));
       }
 
       // PUBLIK: bekräftelsemejl efter anmälan. Mottagaren är alltid anmälans egen
@@ -480,6 +568,9 @@ serve(async (req) => {
             phone: row.recipient_phone ?? undefined,
             registration_id: row.registration_id ?? undefined,
           }],
+          attachments: cleanAttachments(
+            typeof row.attachments === "string" ? JSON.parse(row.attachments) : row.attachments,
+          ),
           resent_from: id,
         });
         const created = out.log_ids[0]

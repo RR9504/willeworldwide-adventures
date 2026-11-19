@@ -59,6 +59,13 @@ interface Recipient {
   registration_id?: string;
 }
 
+/** Mejlbilaga — filen ligger i storage och Resend hämtar den via URL:en. */
+export interface MessageAttachment {
+  filename: string;
+  url: string;
+  size?: number;
+}
+
 interface SendMessageParams {
   channel: MessageChannel;
   recipients: Recipient[];
@@ -66,6 +73,33 @@ interface SendMessageParams {
   message: string;
   kind?: MessageKind;
   trip_id?: string;
+  /** Följer bara med e-post, aldrig SMS. */
+  attachments?: MessageAttachment[];
+}
+
+export const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+export const MAX_ATTACHMENTS = 5;
+export const ATTACHMENT_ACCEPT = '.pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.ics,.zip';
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.slice(result.indexOf(',') + 1));
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Laddar upp en mejlbilaga via data-api (kräver admin). */
+export async function uploadMessageAttachment(file: File): Promise<MessageAttachment> {
+  if (file.size > MAX_ATTACHMENT_SIZE) {
+    throw new Error(`${file.name} är för stor (max 10 MB)`);
+  }
+  const content_base64 = await fileToBase64(file);
+  return callApi<MessageAttachment>('messageFiles.upload', { filename: file.name, content_base64 });
 }
 
 /** En rad i utskicksloggen (message_log i data-api). */
@@ -86,6 +120,7 @@ export interface MessageLogEntry {
   sms_ok: boolean | null;
   error: string | null;
   resent_from: string | null;
+  attachments?: MessageAttachment[] | null;
 }
 
 export const messageStatusLabels: Record<MessageStatus, string> = {
@@ -159,6 +194,7 @@ async function sendDirect(params: {
   recipients: DirectRecipient[];
   subject?: string;
   message: string;
+  attachments?: MessageAttachment[];
 }): Promise<{ success: boolean; error?: string; results?: SendResult[] }> {
   try {
     const res = await fetch(`${EDGE_FUNCTIONS_URL}/functions/v1/send-message`, {
@@ -209,6 +245,7 @@ export async function sendMessage(
         channel: params.channel,
         subject: params.subject,
         message: params.message,
+        attachments: params.attachments?.map(a => ({ filename: a.filename, url: a.url })),
         recipients: params.recipients.map(r => ({ name: r.name, email: r.email, phone: r.phone })),
       });
     }

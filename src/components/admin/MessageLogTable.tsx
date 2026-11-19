@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, RotateCcw, Mail, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react';
+import { Loader2, RotateCcw, Mail, MessageSquare, ChevronDown, ChevronRight, Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -117,6 +117,16 @@ const MessageLogTable = ({ entries, tripTitles, hideRecipient, onResend, resendi
                       )}
                       {e.subject && <p className="text-sm"><span className="text-muted-foreground">Ämne: </span>{e.subject}</p>}
                       <p className="whitespace-pre-line text-sm">{e.message}</p>
+                      {e.attachments && e.attachments.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className="text-muted-foreground">Bilagor:</span>
+                          {e.attachments.map(att => (
+                            <a key={att.url} href={att.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline">
+                              <Paperclip className="h-3.5 w-3.5" />{att.filename}
+                            </a>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         {e.recipient_email && <span>E-post: {e.recipient_email}{e.email_ok === false ? ' (misslyckades)' : ''}</span>}
                         {e.recipient_phone && <span>Telefon: {e.recipient_phone}{e.sms_ok === false ? ' (misslyckades)' : ''}</span>}
